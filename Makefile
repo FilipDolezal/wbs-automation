@@ -21,3 +21,7 @@ run:
 # Get a shell inside the container
 shell:
 	docker-compose exec app bash
+
+# Start only the redmine and postgres services
+up-redmine:
+	docker-compose up -d redmine postgres
