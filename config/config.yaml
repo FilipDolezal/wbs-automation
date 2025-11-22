@@ -1,0 +1,16 @@
+imports:
+  - { resource: 'services.yaml' }
+  - { resource: 'parameters.yaml' }
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # Manual definition of PSR/Guzzle services
+    Psr\Http\Client\ClientInterface: '@GuzzleHttp\Client'
+    Psr\Http\Message\RequestFactoryInterface: '@GuzzleHttp\Psr7\HttpFactory'
+    Psr\Http\Message\StreamFactoryInterface: '@GuzzleHttp\Psr7\HttpFactory'
+
+    GuzzleHttp\Client: ~
+    GuzzleHttp\Psr7\HttpFactory: ~

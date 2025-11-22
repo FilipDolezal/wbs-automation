@@ -7,6 +7,10 @@ RUN apt-get update && apt-get install -y \
     git \
     libpng-dev
 
+# ===> ADD THIS LINE HERE <===
+# Allow git to operate on the /app directory owned by the host user
+RUN git config --global --add safe.directory /app
+
 # Install PHP extensions
 RUN docker-php-ext-install zip gd
 

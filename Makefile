@@ -16,7 +16,7 @@ exec:
 
 # Run the main script
 run:
-	docker-compose exec app php src/main.php
+	docker-compose exec app php bin/cli
 
 # Get a shell inside the container
 shell:

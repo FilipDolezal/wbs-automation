@@ -2,19 +2,11 @@
 
 namespace App\TaskUploader\Service;
 
-use Redmine\Client\NativeCurlClient;
+use Redmine\Client\Psr18Client;
 
-class RedmineService
+readonly class RedmineService
 {
-    private NativeCurlClient $client;
-
-    public function __construct(string $url, string $apiKey)
+    public function __construct(public Psr18Client $client)
     {
-        $this->client = new NativeCurlClient($url, $apiKey);
-    }
-
-    public function getClient(): NativeCurlClient
-    {
-        return $this->client;
     }
 }

@@ -1,0 +1,15 @@
+services:
+    # Manual definition of Redmine Client
+    Redmine\Client\Psr18Client:
+        arguments:
+            $httpClient: '@Psr\Http\Client\ClientInterface'
+            $requestFactory: '@Psr\Http\Message\RequestFactoryInterface'
+            $streamFactory: '@Psr\Http\Message\StreamFactoryInterface'
+            $url: '%redmine.url%'
+            $apikeyOrUsername: '%redmine.api_key%'
+
+    # Manual definition of App services
+    App\TaskUploader\Service\RedmineService: ~
+
+    App\TaskUploader\Command\UploadTasksCommand:
+        public: true # Must be public for bin/cli
