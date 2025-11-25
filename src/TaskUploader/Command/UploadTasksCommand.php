@@ -2,30 +2,67 @@
 
 namespace App\TaskUploader\Command;
 
+use App\Common\ExcelParser\WorksheetTableParser\WorksheetTableParser;
 use App\TaskUploader\Service\RedmineService;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 
 class UploadTasksCommand extends Command
 {
     protected static $defaultName = 'app:upload-tasks';
 
-    public function __construct(private RedmineService $redmineService)
-    {
+    public function __construct(
+        // private readonly RedmineService $redmineService,
+        private readonly WorksheetTableParser $excelParser
+    ) {
         parent::__construct();
     }
 
     protected function configure()
     {
-        $this->setDescription('Uploads tasks from an Excel file to Redmine.');
+        $this
+            ->setDescription('Uploads tasks from an Excel file to Redmine.')
+            ->addArgument('filePath', InputArgument::REQUIRED, 'The path to the Excel file.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $output->writeln('Hello from UploadTasksCommand!');
-        // Here you would add the logic to parse the Excel file and upload tasks
-        // using $this->redmineService.
+        $io = new SymfonyStyle($input, $output);
+        $filePath = $input->getArgument('filePath');
+        $io->title('Parsing tasks from: ' . $filePath);
+
+        try {
+            $tasks = $this->excelParser->parse($filePath);
+            $io->success('File parsed successfully.');
+            $io->text(count($tasks) . ' tasks found.');
+
+            if (empty($tasks)) {
+                $io->warning('No tasks found in the file.');
+                return Command::SUCCESS;
+            }
+            
+            $io->section('Parsed Tasks (for debugging):');
+            foreach ($tasks as $task) {
+                $io->writeln(sprintf(
+                    'Subject: <info>%s</info> | Estimated Hours: <info>%s</info>',
+                    $task['subject'],
+                    $task['estimated_hours'] ?? 'N/A'
+                ));
+            }
+            
+            // In the next step, we will upload these tasks to Redmine.
+            // foreach ($tasks as $task) {
+            //     $this->redmineService->uploadTask($task);
+            // }
+
+        } catch (\Exception $e) {
+            $io->error('An error occurred: ' . $e->getMessage());
+            return Command::FAILURE;
+        }
+
         return Command::SUCCESS;
     }
 }
