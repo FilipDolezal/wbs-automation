@@ -58,9 +58,7 @@ class WbsDevelopmentStructure implements WorksheetTableStructure
     ];
 
     public const array VALIDATORS = [
-        self::COLUMN_TASK_NAME => [[self::class, 'handleUnexpectedNull']],
-        self::COLUMN_INITIATIVE => [[self::class, 'handleUnexpectedNull']],
-        self::COLUMN_EPIC => [[self::class, 'handleUnexpectedNull']],
+        self::COLUMN_TASK_NAME => [[self::class, 'validateNotNull']],
     ];
 
     public function getSheetName(): string
@@ -73,7 +71,7 @@ class WbsDevelopmentStructure implements WorksheetTableStructure
         return self::COLUMNS;
     }
 
-    public function validate(mixed $value, string $column): ?ParseError
+    public function validate(mixed $value, string $column): ?ExcelParserError
     {
         foreach (self::VALIDATORS[$column] ?? [] as $validator)
         {
@@ -88,7 +86,7 @@ class WbsDevelopmentStructure implements WorksheetTableStructure
         return null;
     }
 
-    private static function handleUnexpectedNull(mixed $value): ?ExcelParserError
+    private static function validateNotNull(mixed $value): ?ExcelParserError
     {
         return $value === null ? ExcelParserError::UnexpectedNull : null;
     }

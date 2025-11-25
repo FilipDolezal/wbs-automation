@@ -3,17 +3,26 @@
 namespace App\Common\ExcelParser\WorksheetTableParser;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use RuntimeException;
 
 readonly class WorksheetTableParser
 {
+    protected Worksheet $worksheet;
+
+    protected string $fstCol;
+
+    protected string $lstCol;
+
     public function __construct(
         protected WorksheetTableStructure $structure
     )
     {
+        $this->fstCol = $structure->getColumns()[0];
+        $this->lstCol = $structure->getColumns()[count($structure->getColumns()) - 1];
     }
 
-    public function parse(string $filePath): array
+    public function open(string $filePath): void
     {
         if (!file_exists($filePath))
         {
@@ -28,15 +37,18 @@ readonly class WorksheetTableParser
             throw new RuntimeException("Sheet '{$this->structure->getSheetName()}' not found.");
         }
 
+        $this->worksheet = $ws;
+    }
+
+    public function parse(): array
+    {
         $tasks = [];
         $headerRowProcessed = false;
-        $fstColumn = $this->structure->getColumns()[0];
-        $lstColumn = $this->structure->getColumns()[count($this->structure->getColumns()) - 1];
 
-        foreach ($ws->getRowIterator() as $row)
+        foreach ($this->worksheet->getRowIterator() as $row)
         {
             $rowData = [];
-            $cellIterator = $row->getCellIterator($fstColumn, $lstColumn);
+            $cellIterator = $row->getCellIterator($this->fstCol, $this->lstCol);
             $cellIterator->setIterateOnlyExistingCells(false);
 
             if (!$headerRowProcessed)
@@ -57,7 +69,7 @@ readonly class WorksheetTableParser
                 }
             }
 
-            $processedRowData = array_merge(
+            $tasks[] = array_merge(
                 array_fill_keys($this->structure->getColumns(), null),
                 array_intersect_key($rowData, array_flip($this->structure->getColumns()))
             );

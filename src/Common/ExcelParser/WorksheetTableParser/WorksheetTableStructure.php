@@ -2,7 +2,8 @@
 
 namespace App\Common\ExcelParser\WorksheetTableParser;
 
-use ParseError;
+
+use App\Common\ExcelParser\ExcelParserError;
 
 interface WorksheetTableStructure
 {
@@ -11,5 +12,5 @@ interface WorksheetTableStructure
     /** @return string[] */
     public function getColumns(): array;
 
-    public function validate(mixed $value, string $column): ?ParseError;
+    public function validate(mixed $value, string $column): ?ExcelParserError;
 }
