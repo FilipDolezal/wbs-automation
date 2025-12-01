@@ -52,6 +52,7 @@ class UploadTasksCommand extends Command
             return Command::FAILURE;
         }
 
+        // todo: decide if you turn excelParser into generator or not... continue from here
         try
         {
             $tasks = $this->excelParser->parse();

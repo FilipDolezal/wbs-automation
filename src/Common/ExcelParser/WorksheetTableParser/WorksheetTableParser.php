@@ -3,6 +3,7 @@
 namespace App\Common\ExcelParser\WorksheetTableParser;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Reader\IReader;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use RuntimeException;
 
@@ -29,7 +30,7 @@ readonly class WorksheetTableParser
             throw new RuntimeException("File not found at path: $filePath");
         }
 
-        $ss = IOFactory::load($filePath);
+        $ss = IOFactory::load($filePath, IReader::READ_DATA_ONLY);
         $ws = $ss->getSheetByName($this->structure->getSheetName());
 
         if ($ws === null)
