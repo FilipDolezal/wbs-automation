@@ -74,13 +74,13 @@ abstract class WorksheetTableParser
             }
             catch (ExcelParserCellException $e)
             {
-                $msg = sprintf("ExcelParserCellException: [%s%s]: %s", $rowNumber, $e->cell, $e->getMessage());
+                $msg = sprintf("Row [%s] %s", $rowNumber, $e->getMessage());
                 var_dump($msg);
                 continue;
             }
             catch (ExcelParserException $e)
             {
-                $msg = sprintf("ExcelParserCellException: [%s]: %s", $rowNumber, $e->getMessage());
+                $msg = sprintf("Row [%s] Error: %s", $rowNumber, $e->getMessage());
                 var_dump($msg);
                 continue;
             }
@@ -101,7 +101,7 @@ abstract class WorksheetTableParser
 
         if (!is_string($value))
         {
-            throw new ExcelParserCellException(ExcelParserError::UnexpectedType, $col);
+            throw new ExcelParserCellException(ExcelParserException::CODE_UNEXPECTED_TYPE, $col);
         }
 
         $value = trim($value);
@@ -118,7 +118,7 @@ abstract class WorksheetTableParser
 
         if (empty($value))
         {
-            throw new ExcelParserCellException(ExcelParserError::UnexpectedNull, $col);
+            throw new ExcelParserCellException(ExcelParserException::CODE_UNEXPECTED_NULL, $col);
         }
 
         return $value;
@@ -141,7 +141,7 @@ abstract class WorksheetTableParser
             return null;
         }
 
-        throw new ExcelParserCellException(ExcelParserError::UnexpectedType, $col);
+        throw new ExcelParserCellException(ExcelParserException::CODE_UNEXPECTED_TYPE, $col);
     }
 
     /**
@@ -153,7 +153,7 @@ abstract class WorksheetTableParser
 
         if ($value === null)
         {
-            throw new ExcelParserCellException(ExcelParserError::UnexpectedNull, $col);
+            throw new ExcelParserCellException(ExcelParserException::CODE_UNEXPECTED_NULL, $col);
         }
 
         return $value;
@@ -176,7 +176,7 @@ abstract class WorksheetTableParser
             return null;
         }
 
-        throw new ExcelParserCellException(ExcelParserError::UnexpectedType, $col);
+        throw new ExcelParserCellException(ExcelParserException::CODE_UNEXPECTED_TYPE, $col);
     }
 
     /**
@@ -188,7 +188,7 @@ abstract class WorksheetTableParser
 
         if ($value === null)
         {
-            throw new ExcelParserCellException(ExcelParserError::UnexpectedNull, $col);
+            throw new ExcelParserCellException(ExcelParserException::CODE_UNEXPECTED_NULL, $col);
         }
 
         return $value;
@@ -199,7 +199,7 @@ abstract class WorksheetTableParser
      */
     private function getCell(array $map, string $col): Cell
     {
-        return $map[$col] ?? throw new ExcelParserCellException(ExcelParserError::CellNotFound, null);
+        return $map[$col] ?? throw new ExcelParserCellException(ExcelParserException::CODE_CELL_NOT_FOUND, $col);
     }
 
     /**
@@ -221,7 +221,7 @@ abstract class WorksheetTableParser
         }
         catch (Exception)
         {
-            throw new ExcelParserCellException(ExcelParserError::CalculationError, $col);
+            throw new ExcelParserCellException(ExcelParserException::CODE_CALCULATION_ERROR, $col);
         }
     }
 }

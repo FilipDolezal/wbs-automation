@@ -3,6 +3,7 @@
 namespace App\Common\ExcelParser\WbsParser;
 
 use App\Common\ExcelParser\ExcelParserException;
+use App\Common\ExcelParser\ExcelParserParseException;
 use App\Common\ExcelParser\WorksheetTableParser;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\Exception;
@@ -35,7 +36,7 @@ class WbsParser extends WorksheetTableParser
         }
         catch (Exception $e)
         {
-            throw new ExcelParserException();
+            throw new ExcelParserParseException("Failed to iterate cells", ExcelParserException::CODE_UNKNOWN_ERROR, $e);
         }
 
         $task = new WbsTask(
@@ -53,7 +54,10 @@ class WbsParser extends WorksheetTableParser
 
         if (array_key_exists($task->hash, $this->tasksByHash))
         {
-            throw new ExcelParserException();
+            throw new ExcelParserParseException(
+                sprintf("Duplicate task found: %s", $task->taskName),
+                ExcelParserException::CODE_DUPLICATE_ENTITY
+            );
         }
 
         $this->tasksByHash[$task->hash] = $task;
