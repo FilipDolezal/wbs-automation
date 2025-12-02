@@ -2,7 +2,6 @@
 
 namespace App\Common\ExcelParser;
 
-use App\Common\ExcelParser\WbsParser\WbsTask;
 use PhpOffice\PhpSpreadsheet\Calculation\Exception;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -10,6 +9,7 @@ use PhpOffice\PhpSpreadsheet\Reader\IReader;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\CellIterator;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use Symfony\Component\Console\Output\OutputInterface;
 use RuntimeException;
 
 /**
@@ -21,14 +21,48 @@ abstract class WorksheetTableParser
 
     protected Worksheet $worksheet;
 
+    protected bool $processed = false;
+
+    /** @var array<int, T> */
+    protected array $result = [];
+
+    /** @var array<int, ExcelParserException> */
+    protected array $failed = [];
+
     /**
      * @return T
      */
-    abstract protected function parseEntity(CellIterator $cellIterator): object;
+    abstract protected function parseEntity(int $row, CellIterator $cells): object;
 
     abstract protected function getSheetName(): string;
 
     abstract protected function getColumns(): array;
+
+    /**
+     * @return array<int, T>
+     */
+    public function getResults(): array
+    {
+        if (!$this->processed)
+        {
+            throw new RuntimeException('Results are not available yet! You need to parse the file first.');
+        }
+
+        return $this->result;
+    }
+
+    /**
+     * @return array<int, ExcelParserException>
+     */
+    public function getFailures(): array
+    {
+        if (!$this->processed)
+        {
+            throw new RuntimeException('Results are not available yet! You need to parse the file first.');
+        }
+
+        return $this->failed;
+    }
 
     public function open(string $filePath): void
     {
@@ -49,7 +83,7 @@ abstract class WorksheetTableParser
         $this->worksheet = $ws;
     }
 
-    public function parse(): void
+    public function parse(OutputInterface $output): void
     {
         $headerRowProcessed = false;
         $fstCol = $this->getColumns()[0];
@@ -69,22 +103,21 @@ abstract class WorksheetTableParser
 
             try
             {
-                /** @var WbsTask $obj */
-                $obj = $this->parseEntity($cellIterator);
+                $this->result[$rowNumber] = $this->parseEntity($rowNumber, $cellIterator);
             }
             catch (ExcelParserCellException $e)
             {
-                $msg = sprintf("Row [%s] %s", $rowNumber, $e->getMessage());
-                var_dump($msg);
-                continue;
+                $output->writeln(sprintf("<error>Row [%s] %s</error>", $rowNumber, $e->getMessage()));
+                $this->failed[$rowNumber] = $e;
             }
-            catch (ExcelParserException $e)
+            catch (ExcelParserParseException $e)
             {
-                $msg = sprintf("Row [%s] Error: %s", $rowNumber, $e->getMessage());
-                var_dump($msg);
-                continue;
+                $output->writeln(sprintf("<error>Row [%s] Error: %s</error>", $rowNumber, $e->getMessage()));
+                $this->failed[$rowNumber] = $e;
             }
         }
+
+        $this->processed = true;
     }
 
     /**

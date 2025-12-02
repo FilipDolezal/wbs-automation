@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Common\ExcelParser\WbsParser;
+namespace App\TaskUploader\Parser;
 
 use App\Common\ExcelParser\ExcelParserException;
 use App\Common\ExcelParser\ExcelParserParseException;
@@ -11,25 +11,20 @@ use PhpOffice\PhpSpreadsheet\Worksheet\CellIterator;
 
 class WbsParser extends WorksheetTableParser
 {
-    /** @var array<string, WbsTask> */
-    protected array $tasksByHash = [];
-
-    public function test(): void
-    {
-        var_dump(array_map(static fn($t) => $t->taskName, $this->tasksByHash));
-    }
+    /** @var array<string, true> */
+    private array $hashes = [];
 
     /**
      * @throws ExcelParserException
      */
-    protected function parseEntity(CellIterator $cellIterator): object
+    protected function parseEntity(int $row, CellIterator $cells): object
     {
         /** @var array<string, Cell> $raw */
         $raw = [];
 
         try
         {
-            foreach ($cellIterator as $cell)
+            foreach ($cells as $cell)
             {
                 $raw[$cell->getColumn()] = $cell;
             }
@@ -52,15 +47,15 @@ class WbsParser extends WorksheetTableParser
             acceptanceCriteria: $this->getRawStringNullable($raw, WbsStructure::COLUMN_ACCEPTANCE_CRITERIA)
         );
 
-        if (array_key_exists($task->hash, $this->tasksByHash))
+        if (isset($this->hashes[$task->hash]))
         {
             throw new ExcelParserParseException(
-                sprintf("Duplicate task found: %s", $task->taskName),
+                sprintf("Rows %d is a duplicate of row %d: %s", $row, $this->hashes[$task->hash], $task->taskName),
                 ExcelParserException::CODE_DUPLICATE_ENTITY
             );
         }
 
-        $this->tasksByHash[$task->hash] = $task;
+        $this->hashes[$task->hash] = $row;
 
         return $task;
     }

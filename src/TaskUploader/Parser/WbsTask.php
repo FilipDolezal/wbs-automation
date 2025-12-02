@@ -1,10 +1,11 @@
 <?php
 
-namespace App\Common\ExcelParser\WbsParser;
+namespace App\TaskUploader\Parser;
 
 readonly class WbsTask
 {
     public string $hash;
+    public ?string $parent;
 
     public function __construct(
         public string $taskName,
@@ -19,6 +20,12 @@ readonly class WbsTask
         public ?string $acceptanceCriteria,
     )
     {
-        $this->hash = hash('xxh128', serialize([$this->initiative, $this->epic, $this->taskName]));
+        $this->hash = hash('xxh128', serialize([
+            mb_strtolower(trim((string)$this->initiative)),
+            mb_strtolower(trim((string)$this->epic)),
+            mb_strtolower(trim($this->taskName))
+        ]));
+
+        $this->parent = $this->epic ?: $this->initiative ?: null;
     }
 }

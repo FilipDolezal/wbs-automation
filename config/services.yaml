@@ -11,7 +11,7 @@ services:
     # Manual definition of App services
 
     # WorksheetTableParser for WBS Development sheet
-    App\Common\ExcelParser\WbsParser\WbsParser: ~
+    App\TaskUploader\Parser\WbsParser: ~
 
     App\TaskUploader\Service\RedmineService:
         arguments:

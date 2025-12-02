@@ -2,7 +2,7 @@
 
 namespace App\TaskUploader\Command;
 
-use App\Common\ExcelParser\WbsParser\WbsParser;
+use App\TaskUploader\Parser\WbsParser;
 use App\Common\ExcelParser\WorksheetTableParser;
 use App\TaskUploader\Service\RedmineService;
 use RuntimeException;
@@ -53,23 +53,11 @@ class UploadTasksCommand extends Command
             return Command::FAILURE;
         }
 
-        // todo: decide if you turn excelParser into generator or not... continue from here
-        try
-        {
-            $this->wbsParser->parse();
-            $this->wbsParser->test();
+        $this->wbsParser->parse($output);
 
-            // In the next step, we will upload these tasks to Redmine.
-            // foreach ($tasks as $task) {
-            //     $this->redmineService->uploadTask($task);
-            // }
+        $tasks = $this->wbsParser->getResults();
+        $parents = array_unique(array_values(array_map(static fn ($t) => $t->parent, $tasks)));
 
-        }
-        catch (\Exception $e)
-        {
-            $io->error('An error occurred: ' . $e->getMessage());
-            return Command::FAILURE;
-        }
 
         return Command::SUCCESS;
     }
