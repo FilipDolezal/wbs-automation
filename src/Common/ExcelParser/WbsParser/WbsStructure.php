@@ -1,15 +1,9 @@
 <?php
 
-namespace App\Common\ExcelParser\WorksheetTableParser\Structures;
+namespace App\Common\ExcelParser\WbsParser;
 
-use App\Common\ExcelParser\ExcelParserError;
-use App\Common\ExcelParser\WorksheetTableParser\WorksheetTableStructure;
-use ParseError;
-
-class WbsDevelopmentStructure implements WorksheetTableStructure
+class WbsStructure
 {
-    public const string SHEET_NAME = 'WBS - vývoj';
-
     /** @var string Název úkolu */
     public const string COLUMN_TASK_NAME = 'A';
 
@@ -43,6 +37,8 @@ class WbsDevelopmentStructure implements WorksheetTableStructure
     /** @var string Akceptační kritéria */
     public const string COLUMN_ACCEPTANCE_CRITERIA = 'M';
 
+    public const string SHEET_NAME = 'WBS - vývoj';
+
     public const array COLUMNS = [
         self::COLUMN_TASK_NAME,
         self::COLUMN_INITIATIVE,
@@ -56,38 +52,4 @@ class WbsDevelopmentStructure implements WorksheetTableStructure
         self::COLUMN_DESCRIPTION,
         self::COLUMN_ACCEPTANCE_CRITERIA
     ];
-
-    public const array VALIDATORS = [
-        self::COLUMN_TASK_NAME => [[self::class, 'validateNotNull']],
-    ];
-
-    public function getSheetName(): string
-    {
-        return self::SHEET_NAME;
-    }
-
-    public function getColumns(): array
-    {
-        return self::COLUMNS;
-    }
-
-    public function validate(mixed $value, string $column): ?ExcelParserError
-    {
-        foreach (self::VALIDATORS[$column] ?? [] as $validator)
-        {
-            $error = $validator($value);
-
-            if ($error !== null)
-            {
-                return $error;
-            }
-        }
-
-        return null;
-    }
-
-    private static function validateNotNull(mixed $value): ?ExcelParserError
-    {
-        return $value === null ? ExcelParserError::UnexpectedNull : null;
-    }
 }

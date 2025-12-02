@@ -2,7 +2,8 @@
 
 namespace App\TaskUploader\Command;
 
-use App\Common\ExcelParser\WorksheetTableParser\WorksheetTableParser;
+use App\Common\ExcelParser\WbsParser\WbsParser;
+use App\Common\ExcelParser\WorksheetTableParser;
 use App\TaskUploader\Service\RedmineService;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
@@ -17,8 +18,8 @@ class UploadTasksCommand extends Command
     protected static $defaultName = 'app:upload-tasks';
 
     public function __construct(
-        private readonly RedmineService $redmineService,
-        private readonly WorksheetTableParser $excelParser
+        // private readonly RedmineService $redmineService,
+        private readonly WbsParser $wbsParser
     )
     {
         parent::__construct();
@@ -39,7 +40,7 @@ class UploadTasksCommand extends Command
         {
             $filePath = $input->getArgument('filePath');
             $io->title('Parsing tasks from: ' . $filePath);
-            $this->excelParser->open($filePath);
+            $this->wbsParser->open($filePath);
         }
         catch (InvalidArgumentException)
         {
@@ -55,24 +56,8 @@ class UploadTasksCommand extends Command
         // todo: decide if you turn excelParser into generator or not... continue from here
         try
         {
-            $tasks = $this->excelParser->parse();
-            $io->text(count($tasks) . ' tasks found.');
-
-            if (empty($tasks))
-            {
-                $io->warning('No tasks found in the file.');
-                return Command::SUCCESS;
-            }
-
-            $io->section('Parsed Tasks (for debugging):');
-            foreach ($tasks as $task)
-            {
-                $io->writeln(sprintf(
-                    'Subject: <info>%s</info> | Estimated Hours: <info>%s</info>',
-                    $task['subject'],
-                    $task['estimated_hours'] ?? 'N/A'
-                ));
-            }
+            $this->wbsParser->parse();
+            $this->wbsParser->test();
 
             // In the next step, we will upload these tasks to Redmine.
             // foreach ($tasks as $task) {

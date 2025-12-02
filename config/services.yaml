@@ -11,14 +11,7 @@ services:
     # Manual definition of App services
 
     # WorksheetTableParser for WBS Development sheet
-    App\Common\ExcelParser\WorksheetTableParser\Structures\WbsDevelopmentStructure: ~
-    ExcelParser.WorksheetTableParser.WbsDevelopmentParser:
-        class: App\Common\ExcelParser\WorksheetTableParser\WorksheetTableParser
-        arguments:
-            - '@App\Common\ExcelParser\WorksheetTableParser\Structures\WbsDevelopmentStructure'
-
-    # Alias for default ExcelParser.WorksheetTableParser implementation
-    App\Common\ExcelParser\WorksheetTableParser\WorksheetTableParser: '@ExcelParser.WorksheetTableParser.WbsDevelopmentParser'
+    App\Common\ExcelParser\WbsParser\WbsParser: ~
 
     App\TaskUploader\Service\RedmineService:
         arguments:
@@ -26,6 +19,8 @@ services:
 
     App\TaskUploader\Command\UploadTasksCommand:
         public: true # Must be public for bin/cli
-        arguments:
-            - '@App\TaskUploader\Service\RedmineService'
-            - '@App\Common\ExcelParser\WorksheetTableParser\WorksheetTableParser'
+        autowire: true
+        autoconfigure: true
+#        arguments:
+#            - '@App\TaskUploader\Service\RedmineService'
+#            - '@App\Common\ExcelParser\WbsParser\WbsParser'
