@@ -17,6 +17,10 @@ services:
         arguments:
             - '@Redmine\Client\Psr18Client'
 
+    App\TaskUploader\TaskUploaderFacade:
+        autowire: true
+        autoconfigure: true
+
     App\TaskUploader\Command\UploadTasksCommand:
         public: true # Must be public for bin/cli
         autowire: true
