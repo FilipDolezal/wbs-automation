@@ -5,6 +5,7 @@ namespace App\Common\ExcelParser\WbsParser;
 use App\Common\ExcelParser\ExcelParserException;
 use App\Common\ExcelParser\WorksheetTableParser;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
+use PhpOffice\PhpSpreadsheet\Exception;
 use PhpOffice\PhpSpreadsheet\Worksheet\CellIterator;
 
 class WbsParser extends WorksheetTableParser
@@ -25,9 +26,16 @@ class WbsParser extends WorksheetTableParser
         /** @var array<string, Cell> $raw */
         $raw = [];
 
-        foreach ($cellIterator as $cell)
+        try
         {
-            $raw[$cell->getColumn()] = $cell;
+            foreach ($cellIterator as $cell)
+            {
+                $raw[$cell->getColumn()] = $cell;
+            }
+        }
+        catch (Exception $e)
+        {
+            throw new ExcelParserException();
         }
 
         $task = new WbsTask(
