@@ -42,14 +42,17 @@ class UploadTasksCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-
-        $project = $input->getArgument(self::ARG_PROJECT);
-        $filePath = $input->getArgument(self::ARG_FILEPATH);
-        $io->title("Starting WBS upload from: $filePath to redmine project: $project");
+        $io->title("Starting WBS upload to Redmine");
 
         try
         {
-            $this->taskUploaderFacade->configure();
+            $project = $input->getArgument(self::ARG_PROJECT);
+            $this->taskUploaderFacade->configure($project);
+        }
+        catch (InvalidArgumentException)
+        {
+            $io->error('Missing or invalid project identifier.');
+            return Command::FAILURE;
         }
         catch (TrackerNotFoundException)
         {
@@ -58,6 +61,7 @@ class UploadTasksCommand extends Command
 
         try
         {
+            $filePath = $input->getArgument(self::ARG_FILEPATH);
             $this->wbsParser->open($filePath);
         }
         catch (InvalidArgumentException)

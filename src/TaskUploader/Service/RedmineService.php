@@ -3,6 +3,7 @@
 namespace App\TaskUploader\Service;
 
 use App\TaskUploader\Service\Exception\IssueCreationException;
+use App\TaskUploader\Service\Exception\ProjectNotFoundException;
 use App\TaskUploader\Service\Exception\TrackerNotFoundException;
 
 // New import
@@ -118,5 +119,28 @@ readonly class RedmineService
         {
             throw new IssueCreationException($e->getMessage(), 0, $e);
         }
+    }
+
+    /**
+     * @throws ProjectNotFoundException
+     */
+    public function getProjectIdByIdentifier(string $projectIdentifier): int
+    {
+        $response = $this->client->getApi('project')->list();
+
+        if (!isset($response['projects']) || !is_array($response['projects']))
+        {
+            throw new ProjectNotFoundException("Could not retrieve projects from Redmine API.");
+        }
+
+        foreach ($response['projects'] as $project)
+        {
+            if ($project['identifier'] === $projectIdentifier)
+            {
+                return (int)$project['id'];
+            }
+        }
+
+        throw new ProjectNotFoundException(sprintf("Project with identifier '%s' not found.", $projectIdentifier));
     }
 }

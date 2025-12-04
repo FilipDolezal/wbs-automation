@@ -4,6 +4,7 @@ namespace App\TaskUploader;
 
 use App\TaskUploader\Parser\WbsTask;
 use App\TaskUploader\Service\Exception\IssueCreationException;
+use App\TaskUploader\Service\Exception\ProjectNotFoundException;
 use App\TaskUploader\Service\Exception\TrackerNotFoundException;
 
 // New import
@@ -29,11 +30,11 @@ class TaskUploaderFacade
 
     /**
      * @throws TrackerNotFoundException
+     * @throws ProjectNotFoundException
      */
-    public function configure(int $projectId): void
+    public function configure(string $projectIdentifier): void
     {
-        // TODO: getProjectIdByIdentifier
-        $this->projectId = $projectId;
+        $this->projectId = $this->redmineService->getProjectIdByIdentifier($projectIdentifier);
         $this->trackerId = $this->redmineService->getTrackerIdByName('Požadavek');
     }
 
