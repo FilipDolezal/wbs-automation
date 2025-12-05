@@ -16,10 +16,7 @@ class WbsParser extends WorksheetTableParser
     /** @var array<string, int> */
     private array $hashes = [];
 
-    protected function getEntityClass(): string
-    {
-        return WbsTask::class;
-    }
+    protected string $entityClass = WbsTask::class;
 
     /**
      * @throws ExcelParserException

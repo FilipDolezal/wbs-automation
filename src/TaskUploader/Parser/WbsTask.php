@@ -2,14 +2,11 @@
 
 namespace App\TaskUploader\Parser;
 
-use App\Common\ExcelParser\Attribute\ExcelColumn;
+use App\Common\ExcelParser\ExcelColumn;
 use App\Common\ExcelParser\RowEntity;
-use App\Common\ExcelParser\ExcelMappingTrait;
 
 readonly class WbsTask implements RowEntity
 {
-    use ExcelMappingTrait;
-
     #[ExcelColumn(col: 'A')]
     public string $taskName;
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Common\ExcelParser\Attribute;
+namespace App\Common\ExcelParser;
 
 use Attribute;
 

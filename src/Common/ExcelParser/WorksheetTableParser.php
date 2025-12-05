@@ -8,11 +8,11 @@ use PhpOffice\PhpSpreadsheet\Reader\IReader;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\CellIterator;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use ReflectionProperty;
+use ReflectionException;
 use Symfony\Component\Console\Output\OutputInterface;
 use RuntimeException;
 
-abstract class WorksheetTableParser
+class WorksheetTableParser
 {
     protected Spreadsheet $spreadsheet;
 
@@ -26,18 +26,16 @@ abstract class WorksheetTableParser
     /** @var array<int, ExcelParserException> */
     protected array $failed = [];
 
-    /** @var array<string, array{property: ReflectionProperty, type: string, nullable: bool, calculated: bool}> */
+    /** @var array<string, ColumnDefinition> */
     private array $columnMapping = [];
 
-    /**
-     * @return class-string<RowEntity>
-     */
-    abstract protected function getEntityClass(): string;
+    /** @var class-string<RowEntity> $entityClass */
+    protected string $entityClass;
 
     /**
      * @return array<int, RowEntity>
      */
-    public function getResults(): array
+    final public function getResults(): array
     {
         if (!$this->processed)
         {
@@ -50,7 +48,7 @@ abstract class WorksheetTableParser
     /**
      * @return array<int, ExcelParserException>
      */
-    public function getFailures(): array
+    final public function getFailures(): array
     {
         if (!$this->processed)
         {
@@ -60,42 +58,50 @@ abstract class WorksheetTableParser
         return $this->failed;
     }
 
-    public function open(string $filePath): void
+    final public function open(string $filePath): void
     {
+        if (!isset($this->entityClass))
+        {
+            throw new RuntimeException('Entity class not set');
+        }
+
+        try
+        {
+            $this->columnMapping = ColumnDefinition::fromEntity($this->entityClass);
+        }
+        catch (ReflectionException $e)
+        {
+            throw new RuntimeException("There was a problem with column definition", $e);
+        }
+
+        if (empty($this->columnMapping))
+        {
+            throw new RuntimeException("No columns defined for entity " . $this->entityClass);
+        }
+
         if (!file_exists($filePath))
         {
             throw new RuntimeException("File not found at path: $filePath");
         }
 
+        $sheetName = $this->entityClass::getSheetName();
         $ss = IOFactory::load($filePath, IReader::READ_DATA_ONLY);
-        $ws = $ss->getSheetByName($this->getEntityClass()->getSheetName());
+        $ws = $ss->getSheetByName($sheetName);
 
         if ($ws === null)
         {
-            throw new RuntimeException("Sheet '{$this->getEntityClass()->getSheetName()}' not found.");
+            throw new RuntimeException("Sheet '$sheetName' not found.");
         }
 
         $this->spreadsheet = $ss;
         $this->worksheet = $ws;
     }
 
-    public function parse(OutputInterface $output): void
+    final public function parse(OutputInterface $output): void
     {
-        if (empty($this->columnMapping))
-        {
-            $class = $this->getEntityClass();
-            $this->columnMapping = $class::getMapping();
-        }
-
         $headerRowProcessed = false;
         $columns = array_keys($this->columnMapping);
         sort($columns);
-
-        if (empty($columns))
-        {
-            throw new RuntimeException("No columns defined for entity " . $this->getEntityClass());
-        }
-
         $fstCol = $columns[0];
         $lstCol = $columns[count($columns) - 1];
 
@@ -135,7 +141,7 @@ abstract class WorksheetTableParser
      */
     protected function parseEntity(int $row, CellIterator $cells): object
     {
-        $className = $this->getEntityClass();
+        $className = $this->entityClass;
         $entity = new $className();
 
         try
@@ -149,17 +155,14 @@ abstract class WorksheetTableParser
                     continue;
                 }
 
-                $map = $this->columnMapping[$col];
+                $definition = $this->columnMapping[$col];
 
-                $value = $this->extractValue($cell, $map['type'], $map['nullable'], $map['calculated']);
+                $value = $this->extractValue($cell, $definition);
 
-                $map['property']->setValue($entity, $value);
+                $definition->property->setValue($entity, $value);
             }
 
-            if ($entity instanceof RowEntity)
-            {
-                $entity->afterConstruct();
-            }
+            $entity->afterConstruct();
         }
         catch (\PhpOffice\PhpSpreadsheet\Exception $e)
         {
@@ -172,7 +175,7 @@ abstract class WorksheetTableParser
     /**
      * @throws ExcelParserException
      */
-    private function extractValue(Cell $cell, string $targetType, bool $nullable, bool $calculated): mixed
+    private function extractValue(Cell $cell, ColumnDefinition $definition): mixed
     {
         try
         {
@@ -180,21 +183,21 @@ abstract class WorksheetTableParser
         }
         catch (\PhpOffice\PhpSpreadsheet\Exception $e)
         {
-            throw new ExcelParserParseException(ExcelParserException::CODE_CELL_NOT_FOUND);
+            throw new ExcelParserParseException(code: ExcelParserException::CODE_CELL_NOT_FOUND, previous: $e);
         }
 
         try
         {
-            $val = $calculated ? $cell->getCalculatedValue() : $cell->getValue();
+            $val = $definition->calculated ? $cell->getCalculatedValue() : $cell->getValue();
         }
         catch (\Exception $e)
         {
-            throw new ExcelParserCellException(ExcelParserException::CODE_CALCULATION_ERROR, $col);
+            throw new ExcelParserCellException(ExcelParserException::CODE_CALCULATION_ERROR, $col, $e);
         }
 
         if ($val === null || $val === '')
         {
-            if ($nullable)
+            if ($definition->nullable)
             {
                 return null;
             }
@@ -202,7 +205,7 @@ abstract class WorksheetTableParser
             throw new ExcelParserCellException(ExcelParserException::CODE_UNEXPECTED_NULL, $col);
         }
 
-        if ($targetType === 'int')
+        if ($definition->type === 'int')
         {
             if (is_numeric($val))
             {
@@ -212,7 +215,7 @@ abstract class WorksheetTableParser
             throw new ExcelParserCellException(ExcelParserException::CODE_UNEXPECTED_TYPE, $col);
         }
 
-        if ($targetType === 'float')
+        if ($definition->type === 'float')
         {
             if (is_numeric($val))
             {
@@ -222,7 +225,7 @@ abstract class WorksheetTableParser
             throw new ExcelParserCellException(ExcelParserException::CODE_UNEXPECTED_TYPE, $col);
         }
 
-        if ($targetType === 'string')
+        if ($definition->type === 'string')
         {
             if (!is_string($val) && !is_numeric($val))
             {
@@ -233,7 +236,7 @@ abstract class WorksheetTableParser
 
             if ($val === '')
             {
-                if ($nullable)
+                if ($definition->nullable)
                 {
                     return null;
                 }
