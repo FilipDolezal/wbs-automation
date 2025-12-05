@@ -1,7 +1,15 @@
 imports:
-  - { resource: 'services.yaml' }
-  - { resource: 'parameters.yaml' }
   - { resource: 'monolog.yaml' }
+  - { resource: '../src/TaskUploader/Config/config.yaml' }
+
+parameters:
+    application:
+        name: 'WBS AI Extractor'
+    
+    # Kernel parameters
+    kernel.logs_dir: '%kernel.project_dir%/var/log'
+    kernel.debug: true
+    kernel.environment: 'dev'
 
 services:
     _defaults:
@@ -15,3 +23,6 @@ services:
 
     GuzzleHttp\Client: ~
     GuzzleHttp\Psr7\HttpFactory: ~
+
+  # Aliases
+    Psr\Log\LoggerInterface: '@monolog.logger'

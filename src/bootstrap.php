@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Psr\Log\LoggerInterface;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
@@ -20,9 +19,6 @@ $container = new ContainerBuilder();
 // 3. Inject useful default parameters
 // This allows you to use %kernel.project_dir% in your YAML files
 $container->setParameter('kernel.project_dir', $projectDir);
-$container->setParameter('kernel.logs_dir', $projectDir . '/var/log');
-$container->setParameter('kernel.debug', true);
-$container->setParameter('kernel.environment', 'dev');
 
 // 4. Register Monolog Extension
 $container->registerExtension(new MonologExtension());
@@ -36,7 +32,6 @@ $bundle = new MonologBundle();
 $bundle->build($container);
 
 // 7. Compile and Return
-$container->setAlias(LoggerInterface::class, 'monolog.logger');
 $container->compile();
 
 return $container;

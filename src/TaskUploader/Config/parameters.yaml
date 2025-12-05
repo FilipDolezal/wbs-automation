@@ -1,0 +1,8 @@
+parameters:
+    redmine.url: 'http://redmine:3000'
+    redmine.api_key: 'f90887cb84194e3696d5f5c5ac2837c68907800f'
+
+    # Default Redmine configuration for tasks
+    redmine.default.tracker: 'Požadavek'
+    redmine.default.status: 'Nový'
+    redmine.default.priority: 'Default'

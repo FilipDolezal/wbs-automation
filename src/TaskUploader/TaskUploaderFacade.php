@@ -34,12 +34,17 @@ class TaskUploaderFacade
      * @throws TrackerNotFoundException
      * @throws ProjectNotFoundException
      */
-    public function configure(string $projectIdentifier): void
+    public function configure(
+        string $projectIdentifier,
+        string $trackerName,
+        string $statusName,
+        string $priorityName
+    ): void
     {
         $this->projectId = $this->redmineService->getProjectIdByIdentifier($projectIdentifier);
-        $this->trackerId = $this->redmineService->getTrackerIdByName('Požadavek');
-        $this->priorityId = $this->redmineService->getDefaultPriorityId();
-        $this->statusId = $this->redmineService->getDefaultStatusId();
+        $this->trackerId = $this->redmineService->getTrackerIdByName($trackerName);
+        $this->statusId = $this->redmineService->getStatusIdByName($statusName);
+        $this->priorityId = $this->redmineService->getPriorityIdByName($priorityName);
     }
 
     /**

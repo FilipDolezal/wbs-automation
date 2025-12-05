@@ -1,4 +1,11 @@
+imports:
+  - { resource: 'parameters.yaml' }
+
 services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
     # Manual definition of Redmine Client
     Redmine\Client\Psr18Client:
         arguments:
@@ -8,23 +15,19 @@ services:
             $url: '%redmine.url%'
             $apikeyOrUsername: '%redmine.api_key%'
 
-    # Manual definition of App services
-
     # WorksheetTableParser for WBS Development sheet
     App\TaskUploader\Parser\WbsParser: ~
 
-    App\TaskUploader\Service\RedmineService:
-        arguments:
-            - '@Redmine\Client\Psr18Client'
+    # Redmine API Service
+    App\TaskUploader\Service\RedmineService: ~
 
-    App\TaskUploader\TaskUploaderFacade:
-        autowire: true
-        autoconfigure: true
+    # Task Uploader Facade
+    App\TaskUploader\TaskUploaderFacade: ~
 
+    # Command
     App\TaskUploader\Command\UploadTasksCommand:
         public: true # Must be public for bin/cli
-        autowire: true
-        autoconfigure: true
-#        arguments:
-#            - '@App\TaskUploader\Service\RedmineService'
-#            - '@App\Common\ExcelParser\WbsParser\WbsParser'
+        arguments:
+            $defaultTracker: '%redmine.default.tracker%'
+            $defaultStatus: '%redmine.default.status%'
+            $defaultPriority: '%redmine.default.priority%'

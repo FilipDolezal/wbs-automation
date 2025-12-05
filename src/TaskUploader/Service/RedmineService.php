@@ -218,7 +218,7 @@ readonly class RedmineService
 
     public function getDefaultStatusId(): int
     {
-        $response = $this->client->getApi('issue_status')->all();
+        $response = $this->client->getApi('issue_status')->list();
 
         if (!isset($response['issue_statuses']) || !is_array($response['issue_statuses']))
         {
@@ -239,5 +239,25 @@ readonly class RedmineService
         }
 
         throw new RuntimeException("No issue statuses found in Redmine. Response: " . json_encode($response));
+    }
+
+    public function getStatusIdByName(string $statusName): int
+    {
+        $response = $this->client->getApi('issue_status')->list();
+
+        if (!isset($response['issue_statuses']) || !is_array($response['issue_statuses']))
+        {
+            throw new RuntimeException("Could not retrieve issue statuses from Redmine API.");
+        }
+
+        foreach ($response['issue_statuses'] as $status)
+        {
+            if ($status['name'] === $statusName)
+            {
+                return (int)$status['id'];
+            }
+        }
+
+        throw new RuntimeException(sprintf("Status '%s' not found.", $statusName));
     }
 }

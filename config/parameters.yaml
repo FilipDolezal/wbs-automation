@@ -1,6 +1,0 @@
-parameters:
-    application:
-        name: 'Redmine Task Uploader'
-
-    redmine.url: 'http://redmine:3000'
-    redmine.api_key: 'f90887cb84194e3696d5f5c5ac2837c68907800f'
