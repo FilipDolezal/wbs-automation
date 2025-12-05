@@ -25,3 +25,8 @@ shell:
 # Start only the redmine and postgres services
 up-redmine:
 	docker-compose up -d redmine postgres
+
+# Clear log files
+clear-logs:
+	rm -rf var/log/*
+	@echo "Log files cleared."

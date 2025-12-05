@@ -15,6 +15,8 @@ class TaskUploaderFacade
 {
     private int $projectId;
     private int $trackerId;
+    private int $priorityId;
+    private int $statusId;
 
     /**
      * Cache of resolved Redmine Issue IDs.
@@ -36,6 +38,8 @@ class TaskUploaderFacade
     {
         $this->projectId = $this->redmineService->getProjectIdByIdentifier($projectIdentifier);
         $this->trackerId = $this->redmineService->getTrackerIdByName('Požadavek');
+        $this->priorityId = $this->redmineService->getDefaultPriorityId();
+        $this->statusId = $this->redmineService->getDefaultStatusId();
     }
 
     /**
@@ -60,6 +64,8 @@ class TaskUploaderFacade
             title: $task->taskName,
             projectId: $this->projectId,
             trackerId: $this->trackerId,
+            priorityId: $this->priorityId,
+            statusId: $this->statusId,
             parentId: $parentId,
             customFields: [] // Add custom field mapping logic here
         );
@@ -68,6 +74,7 @@ class TaskUploaderFacade
     /**
      * Resolves an Issue ID for a parent entity (Initiative/Epic) by name.
      * Checks cache -> checks Redmine -> creates if missing.
+     * @throws IssueCreationException
      */
     private function getOrUploadParent(string $name, ?int $parentId = null): int
     {
@@ -92,6 +99,8 @@ class TaskUploaderFacade
             title: $name,
             projectId: $this->projectId,
             trackerId: $this->trackerId,
+            priorityId: $this->priorityId,
+            statusId: $this->statusId,
             parentId: $parentId
         );
 

@@ -3,27 +3,22 @@
 namespace App\TaskUploader\Command;
 
 use App\TaskUploader\Parser\WbsParser;
-use App\Common\ExcelParser\WorksheetTableParser;
-use App\TaskUploader\Service\Exception\ProjectNotFoundException;
+use App\TaskUploader\Service\Exception\IssueCreationException;
 use App\TaskUploader\Service\Exception\RedmineServiceException;
-use App\TaskUploader\Service\Exception\TrackerNotFoundException;
-use App\TaskUploader\Service\RedmineService;
 use App\TaskUploader\TaskUploaderFacade;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Psr\Log\LoggerInterface;
 
 class UploadTasksCommand extends Command
 {
-    protected static $defaultName = 'app:upload-tasks';
-
     public const string ARG_PROJECT = 'project';
     public const string ARG_FILEPATH = 'filepath';
+    protected static $defaultName = 'app:upload-tasks';
 
     public function __construct(
         // private readonly RedmineService $redmineService,
@@ -33,14 +28,6 @@ class UploadTasksCommand extends Command
     )
     {
         parent::__construct();
-    }
-
-    protected function configure(): void
-    {
-        $this
-            ->setDescription('Uploads tasks from an Excel file to Redmine.')
-            ->addArgument(self::ARG_FILEPATH, InputArgument::REQUIRED, 'The path to the Excel file.')
-            ->addArgument(self::ARG_PROJECT, InputArgument::REQUIRED, 'The project identifier.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -78,10 +65,30 @@ class UploadTasksCommand extends Command
         }
 
         $this->wbsParser->parse($output);
-        $tasks = $this->wbsParser->getResults();
-        var_dump($tasks);
 
+        foreach ($this->wbsParser->getResults() as $task)
+        {
+            try
+            {
+                $redmineId = $this->taskUploaderFacade->upload($task);
+                $io->info("Created new Redmine Issue [$redmineId]: $task->taskName");
+            }
+            catch (IssueCreationException $e)
+            {
+                $io->error("Unable to create an Issue: $task->taskName");
+                $this->logger->critical('Unable to create an Issue.', ['exception' => $e]);
+                continue;
+            }
+        }
 
         return Command::SUCCESS;
+    }
+
+    protected function configure(): void
+    {
+        $this
+            ->setDescription('Uploads tasks from an Excel file to Redmine.')
+            ->addArgument(self::ARG_FILEPATH, InputArgument::REQUIRED, 'The path to the Excel file.')
+            ->addArgument(self::ARG_PROJECT, InputArgument::REQUIRED, 'The project identifier.');
     }
 }
