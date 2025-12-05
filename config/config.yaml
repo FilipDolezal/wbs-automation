@@ -1,6 +1,7 @@
 imports:
   - { resource: 'services.yaml' }
   - { resource: 'parameters.yaml' }
+  - { resource: 'monolog.yaml' }
 
 services:
     _defaults:
