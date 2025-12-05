@@ -4,12 +4,12 @@ namespace App\TaskUploader\Service;
 
 use App\TaskUploader\Service\Exception\IssueCreationException;
 use App\TaskUploader\Service\Exception\ProjectNotFoundException;
+use App\TaskUploader\Service\Exception\RedmineServiceException;
 use App\TaskUploader\Service\Exception\TrackerNotFoundException;
-use RuntimeException;
-
-// New import
 use Redmine\Client\Psr18Client;
 use SimpleXMLElement;
+
+// New import
 
 readonly class RedmineService
 {
@@ -17,24 +17,90 @@ readonly class RedmineService
     {
     }
 
-    public function getTrackerIdByName(string $trackerName): int
+    /**
+     * @throws IssueCreationException
+     */
+    public function createParentIssue(
+        string $title,
+        int $projectId,
+        int $trackerId,
+        int $priorityId,
+        int $statusId,
+        ?int $parentId = null,
+        ?string $description = null,
+    ): int
     {
-        $response = $this->client->getApi('tracker')->list();
+        return $this->createIssue(
+            title: $title,
+            projectId: $projectId,
+            trackerId: $trackerId,
+            priorityId: $priorityId,
+            statusId: $statusId,
+            parentId: $parentId,
+            description: $description
+        );
+    }
 
-        if (!isset($response['trackers']) || !is_array($response['trackers']))
+    /**
+     * @throws IssueCreationException
+     */
+    public function createIssue(
+        string $title,
+        int $projectId,
+        int $trackerId,
+        int $priorityId,
+        int $statusId,
+        ?int $parentId = null,
+        ?string $description = null,
+        ?float $estimatedHours = null,
+        array $customFields = []
+    ): int
+    {
+        $issueData = [
+            'project_id' => $projectId,
+            'priority_id' => $priorityId,
+            'status_id' => $statusId,
+            'subject' => $title,
+            'tracker_id' => $trackerId,
+        ];
+
+        if (!empty($customFields))
         {
-            throw new TrackerNotFoundException("Could not retrieve trackers from Redmine API.");
+            $issueData['custom_fields'] = $customFields;
         }
 
-        foreach ($response['trackers'] as $tracker)
+        if ($parentId !== null)
         {
-            if ($tracker['name'] === $trackerName)
+            $issueData['parent_issue_id'] = $parentId;
+        }
+
+        if (!empty($description))
+        {
+            $issueData['description'] = $description;
+        }
+
+        if ($estimatedHours !== null)
+        {
+            $issueData['estimated_hours'] = $estimatedHours;
+        }
+
+        /** @var SimpleXMLElement|false|string $response */
+        $response = $this->client->getApi('issue')->create($issueData);
+
+        if ($response instanceof SimpleXMLElement)
+        {
+            if (isset($response->id))
             {
-                return (int)$tracker['id'];
+                return (int)$response->id;
+            }
+
+            if (isset($response->error))
+            {
+                throw new IssueCreationException(json_encode($response->error, JSON_PARTIAL_OUTPUT_ON_ERROR));
             }
         }
 
-        throw new TrackerNotFoundException(sprintf("Tracker '%s' not found.", $trackerName));
+        throw new IssueCreationException("Unknown API call error: $response");
     }
 
     public function getIssueIdBySubject(
@@ -82,74 +148,30 @@ readonly class RedmineService
     }
 
     /**
-     * @throws IssueCreationException
+     * @throws RedmineServiceException
      */
-    public function createIssue(
-        string $title,
-        int $projectId,
-        int $trackerId,
-        int $priorityId,
-        int $statusId,
-        ?int $parentId = null,
-        array $customFields = []
-    ): int
+    public function getTrackerIdByName(string $trackerName): int
     {
-        $issueData = [
-            'project_id' => $projectId,
-            'priority_id' => $priorityId,
-            'status_id' => $statusId,
-            'subject' => $title,
-            'tracker_id' => $trackerId,
-        ];
+        $response = $this->client->getApi('tracker')->list();
 
-        if (!empty($customFields))
+        if (!isset($response['trackers']) || !is_array($response['trackers']))
         {
-            $issueData['custom_fields'] = $customFields;
+            throw new RedmineServiceException("Could not retrieve trackers from Redmine API.");
         }
 
-        if ($parentId !== null)
+        foreach ($response['trackers'] as $tracker)
         {
-            $issueData['parent_issue_id'] = $parentId;
+            if ($tracker['name'] === $trackerName)
+            {
+                return (int)$tracker['id'];
+            }
         }
 
-        try
-        {
-            $response = $this->client->getApi('issue')->create($issueData);
-
-            // Handle SimpleXMLElement response (common with some client configs)
-            if ($response instanceof SimpleXMLElement && isset($response->id))
-            {
-                return (int)$response->id;
-            }
-
-            // Handle Array response
-            if (is_array($response) && isset($response['issue']['id']))
-            {
-                return (int)$response['issue']['id'];
-            }
-
-            // If 'errors' key exists, format them
-            $errorMsg = 'Unknown API error. Response: ' . json_encode($response);
-
-            if (is_array($response) && isset($response['errors']))
-            {
-                 $errorMsg = json_encode($response['errors']);
-            }
-            elseif ($response instanceof SimpleXMLElement && isset($response->errors))
-            {
-                 $errorMsg = json_encode($response->errors);
-            }
-
-            throw new IssueCreationException($errorMsg);
-        }
-        catch (\Exception $e)
-        {
-            throw new IssueCreationException($e->getMessage(), 0, $e);
-        }
+        throw new RedmineServiceException(sprintf("Tracker '%s' not found.", $trackerName));
     }
 
     /**
-     * @throws ProjectNotFoundException
+     * @throws RedmineServiceException
      */
     public function getProjectIdByIdentifier(string $projectIdentifier): int
     {
@@ -157,7 +179,7 @@ readonly class RedmineService
 
         if (!isset($response['projects']) || !is_array($response['projects']))
         {
-            throw new ProjectNotFoundException("Could not retrieve projects from Redmine API.");
+            throw new RedmineServiceException("Could not retrieve projects from Redmine API.");
         }
 
         foreach ($response['projects'] as $project)
@@ -168,41 +190,19 @@ readonly class RedmineService
             }
         }
 
-        throw new ProjectNotFoundException(sprintf("Project with identifier '%s' not found.", $projectIdentifier));
+        throw new RedmineServiceException(sprintf("Project with identifier '%s' not found.", $projectIdentifier));
     }
 
-    public function getDefaultPriorityId(): int
-    {
-        $response = $this->client->getApi('issue_priority')->list();
-
-        if (!isset($response['issue_priorities']) || !is_array($response['issue_priorities']))
-        {
-            throw new RuntimeException("Could not retrieve issue priorities from Redmine API. Response: " . json_encode($response));
-        }
-
-        foreach ($response['issue_priorities'] as $priority)
-        {
-            if (isset($priority['is_default']) && $priority['is_default'])
-            {
-                return (int)$priority['id'];
-            }
-        }
-
-        // Fallback to the first one if no default is set
-        if (count($response['issue_priorities']) > 0) {
-            return (int)$response['issue_priorities'][0]['id'];
-        }
-
-        throw new RuntimeException("No issue priorities found in Redmine. Response: " . json_encode($response));
-    }
-
+    /**
+     * @throws RedmineServiceException
+     */
     public function getPriorityIdByName(string $priorityName): int
     {
         $response = $this->client->getApi('issue_priority')->list();
 
         if (!isset($response['issue_priorities']) || !is_array($response['issue_priorities']))
         {
-            throw new RuntimeException("Could not retrieve issue priorities from Redmine API.");
+            throw new RedmineServiceException("Could not retrieve issue priorities from Redmine API.");
         }
 
         foreach ($response['issue_priorities'] as $priority)
@@ -213,41 +213,19 @@ readonly class RedmineService
             }
         }
 
-        throw new RuntimeException(sprintf("Priority '%s' not found.", $priorityName));
+        throw new RedmineServiceException(sprintf("Priority '%s' not found.", $priorityName));
     }
 
-    public function getDefaultStatusId(): int
-    {
-        $response = $this->client->getApi('issue_status')->list();
-
-        if (!isset($response['issue_statuses']) || !is_array($response['issue_statuses']))
-        {
-            throw new RuntimeException("Could not retrieve issue statuses from Redmine API. Response: " . json_encode($response));
-        }
-
-        foreach ($response['issue_statuses'] as $status)
-        {
-            if (isset($status['is_default']) && $status['is_default'])
-            {
-                return (int)$status['id'];
-            }
-        }
-
-        // Fallback to the first one if no default is set
-        if (count($response['issue_statuses']) > 0) {
-            return (int)$response['issue_statuses'][0]['id'];
-        }
-
-        throw new RuntimeException("No issue statuses found in Redmine. Response: " . json_encode($response));
-    }
-
+    /**
+     * @throws RedmineServiceException
+     */
     public function getStatusIdByName(string $statusName): int
     {
         $response = $this->client->getApi('issue_status')->list();
 
         if (!isset($response['issue_statuses']) || !is_array($response['issue_statuses']))
         {
-            throw new RuntimeException("Could not retrieve issue statuses from Redmine API.");
+            throw new RedmineServiceException("Could not retrieve issue statuses from Redmine API.");
         }
 
         foreach ($response['issue_statuses'] as $status)
@@ -258,6 +236,6 @@ readonly class RedmineService
             }
         }
 
-        throw new RuntimeException(sprintf("Status '%s' not found.", $statusName));
+        throw new RedmineServiceException(sprintf("Status '%s' not found.", $statusName));
     }
 }

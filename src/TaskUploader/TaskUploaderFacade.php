@@ -5,6 +5,7 @@ namespace App\TaskUploader;
 use App\TaskUploader\Parser\WbsTask;
 use App\TaskUploader\Service\Exception\IssueCreationException;
 use App\TaskUploader\Service\Exception\ProjectNotFoundException;
+use App\TaskUploader\Service\Exception\RedmineServiceException;
 use App\TaskUploader\Service\Exception\TrackerNotFoundException;
 
 // New import
@@ -31,8 +32,7 @@ class TaskUploaderFacade
     }
 
     /**
-     * @throws TrackerNotFoundException
-     * @throws ProjectNotFoundException
+     * @throws RedmineServiceException
      */
     public function configure(
         string $projectIdentifier,
@@ -72,6 +72,8 @@ class TaskUploaderFacade
             priorityId: $this->priorityId,
             statusId: $this->statusId,
             parentId: $parentId,
+            description: $task->description,
+            estimatedHours: $task->estimatedFinalHours,
             customFields: [] // Add custom field mapping logic here
         );
     }
@@ -100,7 +102,7 @@ class TaskUploaderFacade
         }
 
         // 3. Create New
-        $newId = $this->redmineService->createIssue(
+        $newId = $this->redmineService->createParentIssue(
             title: $name,
             projectId: $this->projectId,
             trackerId: $this->trackerId,
