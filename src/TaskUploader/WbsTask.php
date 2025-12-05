@@ -1,6 +1,6 @@
 <?php
 
-namespace App\TaskUploader\Parser;
+namespace App\TaskUploader;
 
 use App\Common\ExcelParser\ExcelColumn;
 use App\Common\ExcelParser\RowEntity;
@@ -22,11 +22,11 @@ readonly class WbsTask implements RowEntity
     #[ExcelColumn(col: 'F')]
     public ?float $estimatedDevHours;
 
-    #[ExcelColumn(col: 'H', calculated: true)]
-    public ?float $overheadHours;
-
-    #[ExcelColumn(col: 'J', calculated: true)]
-    public ?float $estimatedTotalHours;
+    // #[ExcelColumn(col: 'H', calculated: true)]
+    // public ?float $overheadHours;
+    //
+    // #[ExcelColumn(col: 'J', calculated: true)]
+    // public ?float $estimatedTotalHours;
 
     #[ExcelColumn(col: 'K', calculated: true)]
     public ?float $estimatedFinalHours;
@@ -36,6 +36,9 @@ readonly class WbsTask implements RowEntity
 
     #[ExcelColumn(col: 'M')]
     public ?string $acceptanceCriteria;
+
+    #[ExcelColumn(col: 'N')]
+    public ?string $specificationLink;
 
     public string $hash;
 

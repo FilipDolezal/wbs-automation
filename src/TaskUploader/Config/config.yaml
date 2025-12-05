@@ -16,19 +16,21 @@ services:
             $apikeyOrUsername: '%redmine.api_key%'
 
     # WorksheetTableParser for WBS Development sheet
-    App\TaskUploader\Parser\WbsParser: ~
+    App\TaskUploader\WbsParser: ~
 
     # Redmine API Service
-    App\TaskUploader\Service\RedmineService: ~
+    App\TaskUploader\RedmineService: ~
 
     # Issue Factory
-    App\TaskUploader\Factory\IssueFactory: ~
+    App\TaskUploader\IssueFactory:
+        arguments:
+            $wbsMap: '%issueFactory.wbsMap%'
 
     # Task Uploader Facade
     App\TaskUploader\TaskUploaderFacade: ~
 
     # Command
-    App\TaskUploader\Command\UploadTasksCommand:
+    App\TaskUploader\UploadTasksCommand:
         public: true # Must be public for bin/cli
         arguments:
             $defaultTracker: '%redmine.default.tracker%'

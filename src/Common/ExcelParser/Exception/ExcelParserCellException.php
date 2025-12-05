@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Common\ExcelParser;
+namespace App\Common\ExcelParser\Exception;
 
 class ExcelParserCellException extends ExcelParserException
 {

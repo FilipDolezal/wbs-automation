@@ -1,16 +1,12 @@
 <?php
 
-namespace App\TaskUploader\Parser;
+namespace App\TaskUploader;
 
-use App\Common\ExcelParser\ExcelParserException;
-use App\Common\ExcelParser\ExcelParserParseException;
-use App\Common\ExcelParser\RowEntity;
+use App\Common\ExcelParser\Exception\ExcelParserException;
+use App\Common\ExcelParser\Exception\ExcelParserParseException;
 use App\Common\ExcelParser\WorksheetTableParser;
 use PhpOffice\PhpSpreadsheet\Worksheet\CellIterator;
 
-/**
- * @extends WorksheetTableParser<WbsTask>
- */
 class WbsParser extends WorksheetTableParser
 {
     /** @var array<string, int> */

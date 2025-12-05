@@ -1,10 +1,10 @@
 <?php
 
-namespace App\TaskUploader\Command;
+namespace App\TaskUploader;
 
-use App\TaskUploader\Parser\WbsParser;
-use App\TaskUploader\Service\Exception\IssueCreationException;
-use App\TaskUploader\Service\Exception\RedmineServiceException;
+use App\TaskUploader\WbsParser;
+use App\TaskUploader\Exception\IssueCreationException;
+use App\TaskUploader\Exception\RedmineServiceException;
 use App\TaskUploader\TaskUploaderFacade;
 use Psr\Log\LoggerInterface;
 use RuntimeException;

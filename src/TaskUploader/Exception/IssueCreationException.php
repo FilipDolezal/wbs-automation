@@ -1,6 +1,6 @@
 <?php
 
-namespace App\TaskUploader\Service\Exception;
+namespace App\TaskUploader\Exception;
 
 class IssueCreationException extends RedmineServiceException
 {

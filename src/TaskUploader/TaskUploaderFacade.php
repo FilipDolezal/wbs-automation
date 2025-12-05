@@ -2,15 +2,13 @@
 
 namespace App\TaskUploader;
 
-use App\TaskUploader\Parser\WbsTask;
-use App\TaskUploader\Service\Exception\IssueCreationException;
-use App\TaskUploader\Service\Exception\ProjectNotFoundException;
-use App\TaskUploader\Service\Exception\RedmineServiceException;
-use App\TaskUploader\Service\Exception\TrackerNotFoundException;
-use App\TaskUploader\Factory\IssueFactory;
+use App\TaskUploader\WbsTask;
+use App\TaskUploader\Exception\IssueCreationException;
+use App\TaskUploader\Exception\RedmineServiceException;
+use App\TaskUploader\IssueFactory;
 
 // New import
-use App\TaskUploader\Service\RedmineService;
+use App\TaskUploader\RedmineService;
 use RuntimeException;
 
 class TaskUploaderFacade

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\TaskUploader\DTO;
+namespace App\TaskUploader;
 
 class Issue
 {

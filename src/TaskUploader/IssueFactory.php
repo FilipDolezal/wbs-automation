@@ -1,9 +1,9 @@
 <?php
 
-namespace App\TaskUploader\Factory;
+namespace App\TaskUploader;
 
-use App\TaskUploader\DTO\Issue;
-use App\TaskUploader\Parser\WbsTask;
+use App\TaskUploader\Issue;
+use App\TaskUploader\WbsTask;
 use RuntimeException;
 
 class IssueFactory
@@ -12,6 +12,11 @@ class IssueFactory
     private ?int $trackerId = null;
     private ?int $statusId = null;
     private ?int $priorityId = null;
+
+    public function __construct(private array $wbsMap)
+    {
+    }
+
 
     public function configure(int $projectId, int $trackerId, int $statusId, int $priorityId): void
     {
@@ -33,7 +38,10 @@ class IssueFactory
             subject: $task->taskName,
             description: $task->description,
             parentId: $parentId,
-            estimatedHours: $task->estimatedFinalHours
+            estimatedHours: $task->estimatedFinalHours,
+            customFields: [
+
+            ]
         );
     }
 

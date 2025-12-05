@@ -1,12 +1,10 @@
 <?php
 
-namespace App\TaskUploader\Service;
+namespace App\TaskUploader;
 
-use App\TaskUploader\DTO\Issue;
-use App\TaskUploader\Service\Exception\IssueCreationException;
-use App\TaskUploader\Service\Exception\ProjectNotFoundException;
-use App\TaskUploader\Service\Exception\RedmineServiceException;
-use App\TaskUploader\Service\Exception\TrackerNotFoundException;
+use App\TaskUploader\Issue;
+use App\TaskUploader\Exception\IssueCreationException;
+use App\TaskUploader\Exception\RedmineServiceException;
 use Redmine\Client\Psr18Client;
 use SimpleXMLElement;
 
