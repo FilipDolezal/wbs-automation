@@ -2,6 +2,7 @@
 
 namespace App\TaskUploader\Service;
 
+use App\TaskUploader\DTO\Issue;
 use App\TaskUploader\Service\Exception\IssueCreationException;
 use App\TaskUploader\Service\Exception\ProjectNotFoundException;
 use App\TaskUploader\Service\Exception\RedmineServiceException;
@@ -20,69 +21,9 @@ readonly class RedmineService
     /**
      * @throws IssueCreationException
      */
-    public function createParentIssue(
-        string $title,
-        int $projectId,
-        int $trackerId,
-        int $priorityId,
-        int $statusId,
-        ?int $parentId = null,
-        ?string $description = null,
-    ): int
+    public function createIssue(Issue $issue): int
     {
-        return $this->createIssue(
-            title: $title,
-            projectId: $projectId,
-            trackerId: $trackerId,
-            priorityId: $priorityId,
-            statusId: $statusId,
-            parentId: $parentId,
-            description: $description
-        );
-    }
-
-    /**
-     * @throws IssueCreationException
-     */
-    public function createIssue(
-        string $title,
-        int $projectId,
-        int $trackerId,
-        int $priorityId,
-        int $statusId,
-        ?int $parentId = null,
-        ?string $description = null,
-        ?float $estimatedHours = null,
-        array $customFields = []
-    ): int
-    {
-        $issueData = [
-            'project_id' => $projectId,
-            'priority_id' => $priorityId,
-            'status_id' => $statusId,
-            'subject' => $title,
-            'tracker_id' => $trackerId,
-        ];
-
-        if (!empty($customFields))
-        {
-            $issueData['custom_fields'] = $customFields;
-        }
-
-        if ($parentId !== null)
-        {
-            $issueData['parent_issue_id'] = $parentId;
-        }
-
-        if (!empty($description))
-        {
-            $issueData['description'] = $description;
-        }
-
-        if ($estimatedHours !== null)
-        {
-            $issueData['estimated_hours'] = $estimatedHours;
-        }
+        $issueData = $issue->toArray();
 
         /** @var SimpleXMLElement|false|string $response */
         $response = $this->client->getApi('issue')->create($issueData);

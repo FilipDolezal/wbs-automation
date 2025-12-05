@@ -7,6 +7,7 @@ use App\TaskUploader\Service\Exception\IssueCreationException;
 use App\TaskUploader\Service\Exception\ProjectNotFoundException;
 use App\TaskUploader\Service\Exception\RedmineServiceException;
 use App\TaskUploader\Service\Exception\TrackerNotFoundException;
+use App\TaskUploader\Factory\IssueFactory;
 
 // New import
 use App\TaskUploader\Service\RedmineService;
@@ -27,8 +28,10 @@ class TaskUploaderFacade
      */
     private array $issueCache = [];
 
-    public function __construct(private readonly RedmineService $redmineService)
-    {
+    public function __construct(
+        private readonly RedmineService $redmineService,
+        private readonly IssueFactory $issueFactory
+    ) {
     }
 
     /**
@@ -45,6 +48,13 @@ class TaskUploaderFacade
         $this->trackerId = $this->redmineService->getTrackerIdByName($trackerName);
         $this->statusId = $this->redmineService->getStatusIdByName($statusName);
         $this->priorityId = $this->redmineService->getPriorityIdByName($priorityName);
+
+        $this->issueFactory->configure(
+            projectId: $this->projectId,
+            trackerId: $this->trackerId,
+            statusId: $this->statusId,
+            priorityId: $this->priorityId
+        );
     }
 
     /**
@@ -64,18 +74,11 @@ class TaskUploaderFacade
         // Parent is Epic if exists, else Initiative, else null.
         $parentId = $epicId ?? $initiativeId;
 
+        // Create Issue DTO using Factory
+        $issue = $this->issueFactory->createFromWbsTask($task, $parentId);
+
         // Use RedmineService to create the task
-        return $this->redmineService->createIssue(
-            title: $task->taskName,
-            projectId: $this->projectId,
-            trackerId: $this->trackerId,
-            priorityId: $this->priorityId,
-            statusId: $this->statusId,
-            parentId: $parentId,
-            description: $task->description,
-            estimatedHours: $task->estimatedFinalHours,
-            customFields: [] // Add custom field mapping logic here
-        );
+        return $this->redmineService->createIssue($issue);
     }
 
     /**
@@ -102,14 +105,8 @@ class TaskUploaderFacade
         }
 
         // 3. Create New
-        $newId = $this->redmineService->createParentIssue(
-            title: $name,
-            projectId: $this->projectId,
-            trackerId: $this->trackerId,
-            priorityId: $this->priorityId,
-            statusId: $this->statusId,
-            parentId: $parentId
-        );
+        $issue = $this->issueFactory->createParent($name, $parentId);
+        $newId = $this->redmineService->createIssue($issue);
 
         $this->issueCache[$cacheKey] = $newId;
 

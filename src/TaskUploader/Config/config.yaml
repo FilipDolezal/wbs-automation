@@ -21,6 +21,9 @@ services:
     # Redmine API Service
     App\TaskUploader\Service\RedmineService: ~
 
+    # Issue Factory
+    App\TaskUploader\Factory\IssueFactory: ~
+
     # Task Uploader Facade
     App\TaskUploader\TaskUploaderFacade: ~
 
