@@ -4,6 +4,7 @@ namespace App\TaskUploader\Parser;
 
 use App\Common\ExcelParser\ExcelParserException;
 use App\Common\ExcelParser\ExcelParserParseException;
+use App\Common\ExcelParser\RowEntity;
 use App\Common\ExcelParser\WorksheetTableParser;
 use PhpOffice\PhpSpreadsheet\Worksheet\CellIterator;
 
@@ -18,11 +19,6 @@ class WbsParser extends WorksheetTableParser
     protected function getEntityClass(): string
     {
         return WbsTask::class;
-    }
-
-    protected function getSheetName(): string
-    {
-        return WbsTask::SHEET_NAME;
     }
 
     /**

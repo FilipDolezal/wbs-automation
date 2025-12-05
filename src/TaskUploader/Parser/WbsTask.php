@@ -4,40 +4,41 @@ namespace App\TaskUploader\Parser;
 
 use App\Common\ExcelParser\Attribute\ExcelColumn;
 use App\Common\ExcelParser\RowEntity;
+use App\Common\ExcelParser\ExcelMappingTrait;
 
-class WbsTask implements RowEntity
+readonly class WbsTask implements RowEntity
 {
-    public const string SHEET_NAME = 'WBS - vývoj';
+    use ExcelMappingTrait;
 
     #[ExcelColumn(col: 'A')]
     public string $taskName;
 
     #[ExcelColumn(col: 'B')]
-    public ?string $initiative = null;
+    public ?string $initiative;
 
     #[ExcelColumn(col: 'C')]
-    public ?string $epic = null;
+    public ?string $epic;
 
     #[ExcelColumn(col: 'D')]
-    public ?int $redmineId = null;
+    public ?int $redmineId;
 
     #[ExcelColumn(col: 'F')]
-    public ?float $estimatedDevHours = null;
+    public ?float $estimatedDevHours;
 
     #[ExcelColumn(col: 'H', calculated: true)]
-    public ?float $overheadHours = null;
+    public ?float $overheadHours;
 
     #[ExcelColumn(col: 'J', calculated: true)]
-    public ?float $estimatedTotalHours = null;
+    public ?float $estimatedTotalHours;
 
     #[ExcelColumn(col: 'K', calculated: true)]
-    public ?float $estimatedFinalHours = null;
+    public ?float $estimatedFinalHours;
 
     #[ExcelColumn(col: 'L')]
-    public ?string $description = null;
+    public ?string $description;
 
     #[ExcelColumn(col: 'M')]
-    public ?string $acceptanceCriteria = null;
+    public ?string $acceptanceCriteria;
 
     public string $hash;
 
@@ -52,5 +53,10 @@ class WbsTask implements RowEntity
         ]));
 
         $this->parent = $this->epic ?: $this->initiative ?: null;
+    }
+
+    public static function getSheetName(): string
+    {
+        return 'WBS - vývoj';
     }
 }
