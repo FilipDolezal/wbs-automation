@@ -78,8 +78,8 @@ class UploadTasksCommand extends Command
         }
 
         $this->wbsParser->parse($output);
-
         $tasks = $this->wbsParser->getResults();
+        var_dump($tasks);
 
 
         return Command::SUCCESS;

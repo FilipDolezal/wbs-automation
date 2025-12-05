@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 use Symfony\Bundle\MonologBundle\DependencyInjection\MonologExtension;
+use Symfony\Bundle\MonologBundle\MonologBundle;
 
 // 1. Define the project root for cleaner paths
 $projectDir = dirname(__DIR__);
@@ -19,6 +21,8 @@ $container = new ContainerBuilder();
 // This allows you to use %kernel.project_dir% in your YAML files
 $container->setParameter('kernel.project_dir', $projectDir);
 $container->setParameter('kernel.logs_dir', $projectDir . '/var/log');
+$container->setParameter('kernel.debug', true);
+$container->setParameter('kernel.environment', 'dev');
 
 // 4. Register Monolog Extension
 $container->registerExtension(new MonologExtension());
@@ -27,8 +31,12 @@ $container->registerExtension(new MonologExtension());
 $loader = new YamlFileLoader($container, new FileLocator($projectDir . '/config'));
 $loader->load('config.yaml');
 
-// 6. Compile and Return
-$container->setAlias('Psr\Log\LoggerInterface', 'monolog.logger');
+// 6. Register Compiler Passes via Bundle
+$bundle = new MonologBundle();
+$bundle->build($container);
+
+// 7. Compile and Return
+$container->setAlias(LoggerInterface::class, 'monolog.logger');
 $container->compile();
 
 return $container;

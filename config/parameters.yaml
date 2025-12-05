@@ -2,5 +2,5 @@ parameters:
     application:
         name: 'Redmine Task Uploader'
 
-    redmine.url: 'https://localhost:8088/'
+    redmine.url: 'http://redmine:3000'
     redmine.api_key: '3c9b994c9cc69cf0cb48392065bda2aec9f19e7d'
