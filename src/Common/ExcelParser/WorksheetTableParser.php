@@ -2,6 +2,7 @@
 
 namespace App\Common\ExcelParser;
 
+use App\Common\ExcelParser\Attribute\ExcelColumn;
 use PhpOffice\PhpSpreadsheet\Calculation\Exception;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -9,6 +10,8 @@ use PhpOffice\PhpSpreadsheet\Reader\IReader;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\CellIterator;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use ReflectionClass;
+use ReflectionNamedType;
 use Symfony\Component\Console\Output\OutputInterface;
 use RuntimeException;
 
@@ -17,6 +20,9 @@ use RuntimeException;
  */
 abstract class WorksheetTableParser
 {
+    /** @var class-string<RowEntity> $entityClass */
+    protected static string $entityClass;
+
     protected Spreadsheet $spreadsheet;
 
     protected Worksheet $worksheet;
@@ -30,13 +36,11 @@ abstract class WorksheetTableParser
     protected array $failed = [];
 
     /**
-     * @return T
+     * @return class-string<T>
      */
-    abstract protected function parseEntity(int $row, CellIterator $cells): object;
+    abstract protected function getEntityClass(): string;
 
     abstract protected function getSheetName(): string;
-
-    abstract protected function getColumns(): array;
 
     /**
      * @return array<int, T>
@@ -86,8 +90,15 @@ abstract class WorksheetTableParser
     public function parse(OutputInterface $output): void
     {
         $headerRowProcessed = false;
-        $fstCol = $this->getColumns()[0];
-        $lstCol = $this->getColumns()[count($this->getColumns()) - 1];
+        $columns = $this->getColumns();
+
+        if (empty($columns))
+        {
+            throw new RuntimeException("No columns defined for entity " . $this->getEntityClass());
+        }
+
+        $fstCol = $columns[0];
+        $lstCol = $columns[count($columns) - 1];
 
         foreach ($this->worksheet->getRowIterator() as $rowNumber => $row)
         {
@@ -118,6 +129,108 @@ abstract class WorksheetTableParser
         }
 
         $this->processed = true;
+    }
+
+    /**
+     * @throws ExcelParserException
+     */
+    protected function parseEntity(int $row, CellIterator $cells): object
+    {
+        $rc = new ReflectionClass(static::$entityClass);
+        $properties = $rc->getProperties(); // get only ExcelColumns
+
+        /** @var T $entity */
+        $entity = $rc->newInstance();
+
+        try
+        {
+            foreach ($cells as $cell)
+            {
+                $col = $cell->getColumn();
+
+                // here you append each attribute to the $entity object
+
+            }
+
+            $entity->afterConstruct();
+        }
+        catch (\PhpOffice\PhpSpreadsheet\Exception $e)
+        {
+            throw new ExcelParserParseException("Failed to iterate cells", ExcelParserException::CODE_UNKNOWN_ERROR, $e);
+        }
+
+
+        foreach ($rc->getProperties() as $property)
+        {
+            $attributes = $property->getAttributes(ExcelColumn::class);
+            if (empty($attributes))
+            {
+                continue;
+            }
+
+            /** @var ExcelColumn $attr */
+            $attr = $attributes[0]->newInstance();
+            $col = $attr->col;
+            $isCalculated = $attr->calculated;
+
+            $type = $property->getType();
+            $typeName = $type instanceof ReflectionNamedType ? $type->getName() : 'string';
+            $allowsNull = $type->allowsNull();
+
+            $value = null;
+
+            if ($typeName === 'int')
+            {
+                $value = $allowsNull
+                    ? $this->getRawIntNullable($raw, $col)
+                    : $this->getRawInt($raw, $col);
+            }
+            elseif ($typeName === 'float')
+            {
+                if ($isCalculated)
+                {
+                    $value = $allowsNull
+                        ? $this->getCalculatedFloatNullable($raw, $col)
+                        : $this->getCalculatedFloat($raw, $col);
+                }
+                else
+                {
+                    $value = $allowsNull
+                        ? $this->getRawFloatNullable($raw, $col)
+                        : $this->getRawFloat($raw, $col);
+                }
+            }
+            else
+            {
+                // Default to string
+                $value = $allowsNull
+                    ? $this->getRawStringNullable($raw, $col)
+                    : $this->getRawString($raw, $col);
+            }
+
+            $property->setValue($entity, $value);
+        }
+
+        return $entity;
+    }
+
+    protected function getColumns(): array
+    {
+        $columns = [];
+        $rc = new ReflectionClass($this->getEntityClass());
+        foreach ($rc->getProperties() as $property)
+        {
+            $attributes = $property->getAttributes(ExcelColumn::class);
+            if (!empty($attributes))
+            {
+                /** @var ExcelColumn $attr */
+                $attr = $attributes[0]->newInstance();
+                $columns[] = $attr->col;
+            }
+        }
+        $columns = array_unique($columns);
+        sort($columns);
+        return $columns;
     }
 
     /**
@@ -166,7 +279,7 @@ abstract class WorksheetTableParser
 
         if (is_numeric($value))
         {
-            return (int) $value;
+            return (int)$value;
         }
 
         if (empty($value))
@@ -201,7 +314,7 @@ abstract class WorksheetTableParser
 
         if (is_numeric($value))
         {
-            return (float) $value;
+            return (float)$value;
         }
 
         if (empty($value))
@@ -230,7 +343,42 @@ abstract class WorksheetTableParser
     /**
      * @throws ExcelParserCellException
      */
-    private function getCell(array $map, string $col): Cell
+    protected function getRawFloatNullable(array $map, string $col): ?float
+    {
+        $value = $this->getRawValue($map, $col);
+
+        if (is_numeric($value))
+        {
+            return (float)$value;
+        }
+
+        if (empty($value))
+        {
+            return null;
+        }
+
+        throw new ExcelParserCellException(ExcelParserException::CODE_UNEXPECTED_TYPE, $col);
+    }
+
+    /**
+     * @throws ExcelParserCellException
+     */
+    protected function getRawFloat(array $map, string $col): float
+    {
+        $value = $this->getRawFloatNullable($map, $col);
+
+        if ($value === null)
+        {
+            throw new ExcelParserCellException(ExcelParserException::CODE_UNEXPECTED_NULL, $col);
+        }
+
+        return $value;
+    }
+
+    /**
+     * @throws ExcelParserCellException
+     */
+    protected function getCell(array $map, string $col): Cell
     {
         return $map[$col] ?? throw new ExcelParserCellException(ExcelParserException::CODE_CELL_NOT_FOUND, $col);
     }
@@ -238,7 +386,7 @@ abstract class WorksheetTableParser
     /**
      * @throws ExcelParserCellException
      */
-    private function getRawValue(array $map, string $col): mixed
+    protected function getRawValue(array $map, string $col): mixed
     {
         return $this->getCell($map, $col)->getValue();
     }

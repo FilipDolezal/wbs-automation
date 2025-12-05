@@ -5,47 +5,33 @@ namespace App\TaskUploader\Parser;
 use App\Common\ExcelParser\ExcelParserException;
 use App\Common\ExcelParser\ExcelParserParseException;
 use App\Common\ExcelParser\WorksheetTableParser;
-use PhpOffice\PhpSpreadsheet\Cell\Cell;
-use PhpOffice\PhpSpreadsheet\Exception;
 use PhpOffice\PhpSpreadsheet\Worksheet\CellIterator;
 
+/**
+ * @extends WorksheetTableParser<WbsTask>
+ */
 class WbsParser extends WorksheetTableParser
 {
-    /** @var array<string, true> */
+    /** @var array<string, int> */
     private array $hashes = [];
+
+    protected function getEntityClass(): string
+    {
+        return WbsTask::class;
+    }
+
+    protected function getSheetName(): string
+    {
+        return WbsTask::SHEET_NAME;
+    }
 
     /**
      * @throws ExcelParserException
      */
-    protected function parseEntity(int $row, CellIterator $cells): object
+    protected function parseEntity(int $row, CellIterator $cells): WbsTask
     {
-        /** @var array<string, Cell> $raw */
-        $raw = [];
-
-        try
-        {
-            foreach ($cells as $cell)
-            {
-                $raw[$cell->getColumn()] = $cell;
-            }
-        }
-        catch (Exception $e)
-        {
-            throw new ExcelParserParseException("Failed to iterate cells", ExcelParserException::CODE_UNKNOWN_ERROR, $e);
-        }
-
-        $task = new WbsTask(
-            taskName: $this->getRawString($raw, WbsStructure::COLUMN_TASK_NAME),
-            epic: $this->getRawStringNullable($raw, WbsStructure::COLUMN_EPIC),
-            initiative: $this->getRawStringNullable($raw, WbsStructure::COLUMN_INITIATIVE),
-            redmineId: $this->getRawIntNullable($raw, WbsStructure::COLUMN_REDMINE_ID),
-            estimatedDevHours: $this->getRawInt($raw, WbsStructure::COLUMN_ESTIMATED_DEV_HOURS),
-            overheadHours: $this->getCalculatedFloat($raw, WbsStructure::COLUMN_OVERHEAD_HOURS),
-            estimatedTotalHours: $this->getCalculatedFloat($raw, WbsStructure::COLUMN_ESTIMATED_TOTAL_HOURS),
-            estimatedFinalHours: $this->getCalculatedFloat($raw, WbsStructure::COLUMN_ESTIMATED_FINAL_HOURS),
-            description: $this->getRawStringNullable($raw, WbsStructure::COLUMN_DESCRIPTION),
-            acceptanceCriteria: $this->getRawStringNullable($raw, WbsStructure::COLUMN_ACCEPTANCE_CRITERIA)
-        );
+        /** @var WbsTask $task */
+        $task = parent::parseEntity($row, $cells);
 
         if (isset($this->hashes[$task->hash]))
         {
@@ -58,15 +44,5 @@ class WbsParser extends WorksheetTableParser
         $this->hashes[$task->hash] = $row;
 
         return $task;
-    }
-
-    protected function getSheetName(): string
-    {
-        return WbsStructure::SHEET_NAME;
-    }
-
-    protected function getColumns(): array
-    {
-        return WbsStructure::COLUMNS;
     }
 }
