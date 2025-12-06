@@ -4,9 +4,12 @@ namespace App\TaskUploader;
 
 use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
 use App\Common\ExcelParser\WorksheetTableParser;
+use App\Common\ExcelWriter\WorksheetTableWriter;
 use App\TaskUploader\Exception\IssueCreationException;
 use App\TaskUploader\Exception\RedmineServiceException;
 use App\TaskUploader\Parser\WbsColumnDefinition;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Reader\IReader;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
@@ -31,7 +34,7 @@ class UploadTasksCommand extends Command
 {
     public const string ARG_PROJECT = 'project';
     public const string ARG_FILEPATH = 'filepath';
-    
+
     public const string OPT_TRACKER = 'tracker';
     public const string OPT_STATUS = 'status';
     public const string OPT_PRIORITY = 'priority';
@@ -39,7 +42,9 @@ class UploadTasksCommand extends Command
     protected static $defaultName = 'app:upload-tasks';
 
     public function __construct(
+        private readonly string $worksheetName,
         private readonly WorksheetTableParser $parser,
+        private readonly WorksheetTableWriter $writer,
         private readonly TaskUploaderFacade $taskUploaderFacade,
         private readonly LoggerInterface $logger,
         private readonly WbsColumnDefinition $columns,
@@ -75,10 +80,44 @@ class UploadTasksCommand extends Command
         $status = $input->getOption(self::OPT_STATUS) ?? $this->defaultStatus;
         $priority = $input->getOption(self::OPT_PRIORITY) ?? $this->defaultPriority;
 
+        try
+        {
+            // Load spreadsheet once
+            if (!file_exists($filePath))
+            {
+                throw new RuntimeException("Input file not found: $filePath");
+            }
+
+            $spreadsheet = IOFactory::load($filePath, IReader::READ_DATA_ONLY);
+            $worksheet = $spreadsheet->getSheetByName($this->worksheetName);
+
+            if ($worksheet === null)
+            {
+                throw new RuntimeException("Sheet '{$this->worksheetName}' not found in input file.");
+            }
+
+            // Set parser's worksheet
+            $this->parser->setWorksheet($worksheet);
+
+            // Prepare Writer
+            $path = pathinfo($filePath);
+            $outputFilePath = sprintf("%s/%s_processed.%s", $path['dirname'], $path['filename'], $path['extension']);
+
+            // Set writer's spreadsheet and output path
+            $this->writer->setSpreadsheet($spreadsheet, $this->worksheetName, $outputFilePath);
+        }
+        catch (RuntimeException $e)
+        {
+            $io->error('An error occurred while opening/preparing the file: ' . $e->getMessage());
+            $this->logger->critical('An error occurred while opening/preparing the file.', ['exception' => $e]);
+            return Command::FAILURE;
+        }
+
         $io->title("Starting WBS upload process");
         $io->text([
             "Project: $project",
             "File: $filePath",
+            "Sheet: $this->worksheetName",
             "Tracker: $tracker",
             "Status: $status",
             "Priority: $priority"
@@ -87,6 +126,7 @@ class UploadTasksCommand extends Command
         $this->logger->info('Starting WBS upload process', [
             'project' => $project,
             'filepath' => $filePath,
+            'sheet' => $this->worksheetName,
             'config' => [
                 'tracker' => $tracker,
                 'status' => $status,
@@ -105,20 +145,11 @@ class UploadTasksCommand extends Command
             return Command::FAILURE;
         }
 
-        try
-        {
-            $this->parser->open($filePath);
-        }
-        catch (RuntimeException $e)
-        {
-            $io->error('An error occurred while opening the file: ' . $e->getMessage());
-            $this->logger->critical('An error occurred while opening the file.', ['exception' => $e]);
-            return Command::FAILURE;
-        }
-
         $this->parser->parse($output);
 
-        foreach ($this->parser->getResults() as $task)
+        $redmineIdColumn = $this->columns->getColumnByIdentifier(WbsColumnDefinition::ID_REDMINE_ID);
+
+        foreach ($this->parser->getResults() as $rowNumber => $task)
         {
             $taskName = $task->get($this->columns->getColumnByIdentifier(WbsColumnDefinition::ID_TASK_NAME));
 
@@ -126,6 +157,11 @@ class UploadTasksCommand extends Command
             {
                 $redmineId = $this->taskUploaderFacade->upload($task);
                 $io->info("Created new Redmine Issue [$redmineId]: $taskName");
+
+                if ($redmineIdColumn !== null)
+                {
+                    $this->writer->write($rowNumber, $redmineIdColumn, $redmineId);
+                }
             }
             catch (IssueCreationException $e)
             {
@@ -139,6 +175,17 @@ class UploadTasksCommand extends Command
                 $this->logger->error('Wbs structure error.', ['exception' => $e]);
                 continue;
             }
+        }
+
+        try
+        {
+            $this->writer->save();
+            $io->success("Processed file saved to: $outputFilePath");
+        }
+        catch (\Exception $e)
+        {
+            $io->error("Failed to save output file: " . $e->getMessage());
+            $this->logger->critical('Failed to save output file.', ['exception' => $e]);
         }
 
         return Command::SUCCESS;

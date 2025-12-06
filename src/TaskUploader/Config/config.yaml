@@ -31,14 +31,19 @@ services:
     WBSParser:
         class: 'App\Common\ExcelParser\WorksheetTableParser'
         arguments:
-            $worksheetName: '%wbs.spreadsheet_name%'
-            $dynamicColumns: '@App\TaskUploader\Parser\WbsColumnDefinition'
+            $columns: '@App\TaskUploader\Parser\WbsColumnDefinition'
+
+    # WBS spreadsheet writer
+    WBSWriter:
+        class: 'App\Common\ExcelWriter\WorksheetTableWriter'
 
     # Command
     App\TaskUploader\UploadTasksCommand:
         public: true # Must be public for bin/cli
         arguments:
+            $worksheetName: '%wbs.spreadsheet_name%'
             $parser: '@WBSParser'
+            $writer: '@WBSWriter'
             $defaultTracker: '%redmine.default.tracker%'
             $defaultStatus: '%redmine.default.status%'
             $defaultPriority: '%redmine.default.priority%'

@@ -3,32 +3,24 @@
 namespace App\Common\ExcelParser;
 
 use App\Common\ExcelParser\Exception\ExcelParserCellException;
-use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
 use App\Common\ExcelParser\Exception\ExcelParserException;
 use App\Common\ExcelParser\Exception\ExcelParserParseException;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\Exception as PhpOfficeSpreadsheetException;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Reader\IReader;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\CellIterator;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use ReflectionException;
 use RuntimeException;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Parses an Excel worksheet into a collection of DynamicRow objects.
  *
- * This class uses PhpSpreadsheet to open and iterate through an Excel file.
+ * This class uses PhpSpreadsheet to iterate through a given Worksheet.
  * It validates each cell against the provided ColumnDefinition and handles
  * errors gracefully, collecting valid rows in the result and errors in the failed list.
  */
 class WorksheetTableParser
 {
-    /** @var Spreadsheet The loaded PhpSpreadsheet object. */
-    protected Spreadsheet $spreadsheet;
-
     /** @var Worksheet The specific worksheet being parsed. */
     protected Worksheet $worksheet;
 
@@ -42,11 +34,9 @@ class WorksheetTableParser
     protected array $failed = [];
 
     /**
-     * @param string $worksheetName The name of the sheet tab to parse.
      * @param ColumnDefinition $columns The schema definition for the columns.
      */
     public function __construct(
-        protected string $worksheetName,
         protected ColumnDefinition $columns,
     )
     {
@@ -85,28 +75,13 @@ class WorksheetTableParser
     }
 
     /**
-     * Opens the Excel file and selects the target worksheet.
+     * Sets the worksheet to be parsed.
      *
-     * @param string $filePath Path to the Excel file.
-     * @throws RuntimeException If the file does not exist or the sheet is missing.
+     * @param Worksheet $worksheet The worksheet object from PhpSpreadsheet.
      */
-    final public function open(string $filePath): void
+    final public function setWorksheet(Worksheet $worksheet): void
     {
-        if (!file_exists($filePath))
-        {
-            throw new RuntimeException("File not found at path: $filePath");
-        }
-
-        $ss = IOFactory::load($filePath, IReader::READ_DATA_ONLY);
-        $ws = $ss->getSheetByName($this->worksheetName);
-
-        if ($ws === null)
-        {
-            throw new RuntimeException("Sheet '$this->worksheetName' not found.");
-        }
-
-        $this->spreadsheet = $ss;
-        $this->worksheet = $ws;
+        $this->worksheet = $worksheet;
     }
 
     /**
@@ -116,9 +91,15 @@ class WorksheetTableParser
      * in the failures list, allowing the process to continue for subsequent rows.
      *
      * @param OutputInterface $output Console output for logging errors.
+     * @throws RuntimeException If no worksheet has been set.
      */
     final public function parse(OutputInterface $output): void
     {
+        if (!isset($this->worksheet))
+        {
+            throw new RuntimeException('No worksheet has been set. Call setWorksheet() first.');
+        }
+
         $headerRowProcessed = false;
 
         foreach ($this->worksheet->getRowIterator() as $rowNumber => $row)
