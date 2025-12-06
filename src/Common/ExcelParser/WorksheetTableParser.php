@@ -63,19 +63,12 @@ class WorksheetTableParser
 
     final public function open(string $filePath): void
     {
-        if (!isset($this->entityClass))
+        if (!isset($this->entityClass) || !is_a($this->entityClass, RowEntity::class, true))
         {
-            throw new RuntimeException('Entity class not set');
+            throw new RuntimeException('Entity class not set or does not implement RowEntity interface.');
         }
 
-        try
-        {
-            $this->columnMapping = ColumnDefinition::fromEntity($this->entityClass);
-        }
-        catch (ReflectionException $e)
-        {
-            throw new RuntimeException("There was a problem with column definition", $e);
-        }
+        $this->columnMapping = ColumnDefinition::fromEntity($this->entityClass);
 
         if (empty($this->columnMapping))
         {

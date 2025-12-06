@@ -7,6 +7,6 @@ parameters:
     redmine.default.status: 'Nový'
     redmine.default.priority: 'Default'
 
-    issueFactory.wbsMap:
+    wbs_column_to_redmine_custom_field_map:
         F: 'Odhad pro programátora'
         N: 'Odkaz na specifikaci'

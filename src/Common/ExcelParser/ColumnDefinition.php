@@ -3,7 +3,6 @@
 namespace App\Common\ExcelParser;
 
 use ReflectionClass;
-use ReflectionException;
 use ReflectionNamedType;
 use ReflectionProperty;
 
@@ -17,10 +16,14 @@ class ColumnDefinition
         public bool $calculated
     ) {}
 
+    public function getValueOf(RowEntity $entity)
+    {
+        return $entity->{$this->property->getName()};
+    }
+
     /**
-     * @param class-string $className
+     * @param class-string<RowEntity> $className
      * @return array<string, self>
-     * @throws ReflectionException
      */
     public static function fromEntity(string $className): array
     {

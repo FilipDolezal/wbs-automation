@@ -9,15 +9,11 @@ use App\TaskUploader\IssueFactory;
 
 // New import
 use App\TaskUploader\RedmineService;
+use ReflectionException;
 use RuntimeException;
 
 class TaskUploaderFacade
 {
-    private int $projectId;
-    private int $trackerId;
-    private int $priorityId;
-    private int $statusId;
-
     /**
      * Cache of resolved Redmine Issue IDs.
      * Key: A unique string representing the issue.
@@ -26,9 +22,13 @@ class TaskUploaderFacade
      */
     private array $issueCache = [];
 
+    /**
+     * @param array<string, string> $wbsMap WBS COLUMN => CUSTOM FIELD NAME
+     */
     public function __construct(
         private readonly RedmineService $redmineService,
-        private readonly IssueFactory $issueFactory
+        private readonly IssueFactory $issueFactory,
+        private readonly array $wbsMap,
     ) {
     }
 
@@ -42,16 +42,12 @@ class TaskUploaderFacade
         string $priorityName
     ): void
     {
-        $this->projectId = $this->redmineService->getProjectIdByIdentifier($projectIdentifier);
-        $this->trackerId = $this->redmineService->getTrackerIdByName($trackerName);
-        $this->statusId = $this->redmineService->getStatusIdByName($statusName);
-        $this->priorityId = $this->redmineService->getPriorityIdByName($priorityName);
-
         $this->issueFactory->configure(
-            projectId: $this->projectId,
-            trackerId: $this->trackerId,
-            statusId: $this->statusId,
-            priorityId: $this->priorityId
+            projectId: $this->redmineService->getProjectIdByIdentifier($projectIdentifier),
+            trackerId: $this->redmineService->getTrackerIdByName($trackerName),
+            statusId: $this->redmineService->getStatusIdByName($statusName),
+            priorityId: $this->redmineService->getPriorityIdByName($priorityName),
+            wbsCustomFieldIdMap: $this->redmineService->getCustomFieldIds($this->wbsMap),
         );
     }
 
@@ -60,8 +56,6 @@ class TaskUploaderFacade
      */
     public function upload(WbsTask $task): int
     {
-        $this->ensureConfigured();
-
         // 1. Resolve Initiative
         $initiativeId = $task->initiative ? $this->getOrUploadParent($task->initiative) : null;
 
@@ -95,7 +89,7 @@ class TaskUploaderFacade
         }
 
         // 2. Check Remote (Redmine)
-        $existingId = $this->redmineService->getIssueIdBySubject($name, $parentId, $this->projectId, $this->trackerId);
+        $existingId = $this->redmineService->getIssueIdBySubject($name, $parentId);
         if ($existingId !== null)
         {
             $this->issueCache[$cacheKey] = $existingId;
@@ -109,13 +103,5 @@ class TaskUploaderFacade
         $this->issueCache[$cacheKey] = $newId;
 
         return $newId;
-    }
-
-    private function ensureConfigured(): void
-    {
-        if (!isset($this->projectId))
-        {
-            throw new RuntimeException("TaskUploaderFacade not configured. Call configure() first.");
-        }
     }
 }

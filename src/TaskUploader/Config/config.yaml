@@ -22,12 +22,12 @@ services:
     App\TaskUploader\RedmineService: ~
 
     # Issue Factory
-    App\TaskUploader\IssueFactory:
-        arguments:
-            $wbsMap: '%issueFactory.wbsMap%'
+    App\TaskUploader\IssueFactory: ~
 
     # Task Uploader Facade
-    App\TaskUploader\TaskUploaderFacade: ~
+    App\TaskUploader\TaskUploaderFacade:
+        arguments:
+            $wbsMap: '%wbs_column_to_redmine_custom_field_map%'
 
     # Command
     App\TaskUploader\UploadTasksCommand:

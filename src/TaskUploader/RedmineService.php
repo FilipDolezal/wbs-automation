@@ -2,7 +2,6 @@
 
 namespace App\TaskUploader;
 
-use App\TaskUploader\Issue;
 use App\TaskUploader\Exception\IssueCreationException;
 use App\TaskUploader\Exception\RedmineServiceException;
 use Redmine\Client\Psr18Client;
@@ -21,10 +20,8 @@ readonly class RedmineService
      */
     public function createIssue(Issue $issue): int
     {
-        $issueData = $issue->toArray();
-
         /** @var SimpleXMLElement|false|string $response */
-        $response = $this->client->getApi('issue')->create($issueData);
+        $response = $this->client->getApi('issue')->create($issue->toArray());
 
         if ($response instanceof SimpleXMLElement)
         {
@@ -42,28 +39,13 @@ readonly class RedmineService
         throw new IssueCreationException("Unknown API call error: $response");
     }
 
-    public function getIssueIdBySubject(
-        string $subject,
-        ?int $parentId = null,
-        ?int $projectId = null,
-        ?int $trackerId = null,
-    ): ?int
+    public function getIssueIdBySubject(string $subject, ?int $parentIssueId = null): ?int
     {
         $options = ['subject' => $subject, 'limit' => 100];
 
-        if ($parentId !== null)
+        if ($parentIssueId !== null)
         {
-            $options['parent_issue_id'] = $parentId;
-        }
-
-        if ($projectId !== null)
-        {
-            $options['project_id'] = $projectId;
-        }
-
-        if ($trackerId !== null)
-        {
-            $options['tracker_id'] = $trackerId;
+            $options['parent_issue_id'] = $parentIssueId;
         }
 
         // Redmine API 'subject' filter is usually a "contains" search.
@@ -176,5 +158,41 @@ readonly class RedmineService
         }
 
         throw new RedmineServiceException(sprintf("Status '%s' not found.", $statusName));
+    }
+
+    /**
+     * @param array<string, string> $columnToNameMap
+     * @return array<string, int>
+     * @throws RedmineServiceException
+     */
+    public function getCustomFieldIds(array $columnToNameMap): array
+    {
+        $response = $this->client->getApi('custom_fields')->list(['limit' => 100]);
+
+        if (!isset($response['custom_fields']) || !is_array($response['custom_fields']))
+        {
+            throw new RedmineServiceException("Could not retrieve custom fields from Redmine API.");
+        }
+
+        $nameToId = [];
+        foreach ($response['custom_fields'] as $field)
+        {
+            $nameToId[$field['name']] = (int)$field['id'];
+        }
+
+        $result = [];
+        foreach ($columnToNameMap as $column => $name)
+        {
+            if (isset($nameToId[$name]))
+            {
+                $result[$column] = $nameToId[$name];
+            }
+            else
+            {
+                throw new RedmineServiceException(sprintf("Custom field '%s' for column '%s' not found in Redmine.", $name, $column));
+            }
+        }
+
+        return $result;
     }
 }
