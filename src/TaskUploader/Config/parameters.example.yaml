@@ -1,14 +1,14 @@
 parameters:
-    redmine.url: 'http://redmine:3000'
-    redmine.api_key: 'f90887cb84194e3696d5f5c5ac2837c68907800f'
+    redmine.url: 'http://localhost:3000' # Example: Your Redmine instance URL
+    redmine.api_key: 'YOUR_REDMINE_API_KEY' # Example: Your Redmine API key
 
     # Default Redmine configuration for tasks
-    redmine.default.tracker: 'Požadavek'
-    redmine.default.status: 'Nový'
-    redmine.default.priority: 'Default'
+    redmine.default.tracker: 'Bug'
+    redmine.default.status: 'New'
+    redmine.default.priority: 'Normal'
 
     # WBS configuration
-    wbs.spreadsheet_name: 'WBS - vývoj'
+    wbs.spreadsheet_name: 'Sheet1'
     wbs.column_identifiers:
         taskName: 'A'
         initiative: 'B'
@@ -39,7 +39,7 @@ parameters:
 
         F:
           type: float
-          custom_field: 'Odhad pro programátora'
+          custom_field: 'Estimated Development Hours'
 
         K:
           type: float
@@ -56,4 +56,4 @@ parameters:
 
         N:
           type: string
-          custom_field: 'Odkaz na specifikaci'
+          custom_field: 'Link to Specification'
