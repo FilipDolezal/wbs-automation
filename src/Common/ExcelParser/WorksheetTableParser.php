@@ -17,20 +17,34 @@ use ReflectionException;
 use RuntimeException;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * Parses an Excel worksheet into a collection of DynamicRow objects.
+ *
+ * This class uses PhpSpreadsheet to open and iterate through an Excel file.
+ * It validates each cell against the provided ColumnDefinition and handles
+ * errors gracefully, collecting valid rows in the result and errors in the failed list.
+ */
 class WorksheetTableParser
 {
+    /** @var Spreadsheet The loaded PhpSpreadsheet object. */
     protected Spreadsheet $spreadsheet;
 
+    /** @var Worksheet The specific worksheet being parsed. */
     protected Worksheet $worksheet;
 
+    /** @var bool Flag indicating if the parsing process has completed. */
     protected bool $processed = false;
 
-    /** @var array<int, DynamicRow> */
+    /** @var array<int, DynamicRow> Successfully parsed rows, indexed by row number. */
     protected array $result = [];
 
-    /** @var array<int, ExcelParserException> */
+    /** @var array<int, ExcelParserException> Exceptions encountered during parsing, indexed by row number. */
     protected array $failed = [];
 
+    /**
+     * @param string $worksheetName The name of the sheet tab to parse.
+     * @param ColumnDefinition $columns The schema definition for the columns.
+     */
     public function __construct(
         protected string $worksheetName,
         protected ColumnDefinition $columns,
@@ -39,7 +53,10 @@ class WorksheetTableParser
     }
 
     /**
+     * Returns the successfully parsed rows.
+     *
      * @return array<int, DynamicRow>
+     * @throws RuntimeException If the file hasn't been parsed yet.
      */
     final public function getResults(): array
     {
@@ -52,7 +69,10 @@ class WorksheetTableParser
     }
 
     /**
+     * Returns the exceptions encountered during parsing.
+     *
      * @return array<int, ExcelParserException>
+     * @throws RuntimeException If the file hasn't been parsed yet.
      */
     final public function getFailures(): array
     {
@@ -64,6 +84,12 @@ class WorksheetTableParser
         return $this->failed;
     }
 
+    /**
+     * Opens the Excel file and selects the target worksheet.
+     *
+     * @param string $filePath Path to the Excel file.
+     * @throws RuntimeException If the file does not exist or the sheet is missing.
+     */
     final public function open(string $filePath): void
     {
         if (!file_exists($filePath))
@@ -83,6 +109,14 @@ class WorksheetTableParser
         $this->worksheet = $ws;
     }
 
+    /**
+     * Iterates through the worksheet rows and parses them.
+     *
+     * Skips the first row (header). Errors are logged to the output and stored
+     * in the failures list, allowing the process to continue for subsequent rows.
+     *
+     * @param OutputInterface $output Console output for logging errors.
+     */
     final public function parse(OutputInterface $output): void
     {
         $headerRowProcessed = false;
@@ -119,7 +153,11 @@ class WorksheetTableParser
     }
 
     /**
-     * @throws ExcelParserException
+     * Parses a single row of cells into a DynamicRow object.
+     *
+     * @param CellIterator $cells Iterator for the cells in the current row.
+     * @return DynamicRow The populated data object.
+     * @throws ExcelParserException If a cell fails validation or extracting.
      */
     protected function parseRow(CellIterator $cells): DynamicRow
     {
@@ -152,6 +190,16 @@ class WorksheetTableParser
     }
 
     /**
+     * Extracts and validates the value from a single cell.
+     *
+     * Checks for:
+     * - Nullability violations
+     * - Type mismatches (int, float, string)
+     * - Calculation errors
+     *
+     * @param Cell $cell The cell to extract from.
+     * @param DynamicColumn $definition The schema definition for the column.
+     * @return mixed The extracted value.
      * @throws ExcelParserException
      */
     private function extractValue(Cell $cell, DynamicColumn $definition): mixed

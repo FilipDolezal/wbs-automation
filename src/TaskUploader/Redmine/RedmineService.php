@@ -7,8 +7,12 @@ use App\TaskUploader\Exception\RedmineServiceException;
 use Redmine\Client\Psr18Client;
 use SimpleXMLElement;
 
-// New import
-
+/**
+ * Service wrapper for interacting with the Redmine API.
+ *
+ * Handles creating issues, retrieving configuration IDs (Project, Tracker, etc.),
+ * and searching for existing issues.
+ */
 readonly class RedmineService
 {
     public function __construct(private Psr18Client $client)
@@ -16,7 +20,11 @@ readonly class RedmineService
     }
 
     /**
-     * @throws IssueCreationException
+     * Sends a request to create a new issue in Redmine.
+     *
+     * @param Issue $issue The issue DTO.
+     * @return int The ID of the newly created issue.
+     * @throws IssueCreationException If the API call fails or returns an error.
      */
     public function createIssue(Issue $issue): int
     {
@@ -39,6 +47,15 @@ readonly class RedmineService
         throw new IssueCreationException("Unknown API call error: $response");
     }
 
+    /**
+     * Searches for an existing issue by subject (and optional parent).
+     *
+     * This is used to prevent creating duplicate Initiatives or Epics.
+     *
+     * @param string $subject The subject to search for.
+     * @param int|null $parentIssueId Optional parent ID to narrow the search.
+     * @return int|null The Issue ID if found, or null.
+     */
     public function getIssueIdBySubject(string $subject, ?int $parentIssueId = null): ?int
     {
         $options = ['subject' => $subject, 'limit' => 100];
@@ -69,7 +86,11 @@ readonly class RedmineService
     }
 
     /**
-     * @throws RedmineServiceException
+     * Retrieves the internal ID of a Tracker by its name.
+     *
+     * @param string $trackerName
+     * @return int
+     * @throws RedmineServiceException If the tracker is not found.
      */
     public function getTrackerIdByName(string $trackerName): int
     {
@@ -92,7 +113,11 @@ readonly class RedmineService
     }
 
     /**
-     * @throws RedmineServiceException
+     * Retrieves the internal ID of a Project by its string identifier.
+     *
+     * @param string $projectIdentifier
+     * @return int
+     * @throws RedmineServiceException If the project is not found.
      */
     public function getProjectIdByIdentifier(string $projectIdentifier): int
     {
@@ -115,7 +140,11 @@ readonly class RedmineService
     }
 
     /**
-     * @throws RedmineServiceException
+     * Retrieves the internal ID of a Priority by its name.
+     *
+     * @param string $priorityName
+     * @return int
+     * @throws RedmineServiceException If the priority is not found.
      */
     public function getPriorityIdByName(string $priorityName): int
     {
@@ -138,7 +167,11 @@ readonly class RedmineService
     }
 
     /**
-     * @throws RedmineServiceException
+     * Retrieves the internal ID of a Status by its name.
+     *
+     * @param string $statusName
+     * @return int
+     * @throws RedmineServiceException If the status is not found.
      */
     public function getStatusIdByName(string $statusName): int
     {
@@ -161,9 +194,11 @@ readonly class RedmineService
     }
 
     /**
-     * @param array<string, string> $columnToNameMap
-     * @return array<string, int>
-     * @throws RedmineServiceException
+     * Resolves internal IDs for a list of Custom Fields.
+     *
+     * @param array<string, string> $columnToNameMap Map of Excel Column => Custom Field Name.
+     * @return array<string, int> Map of Excel Column => Custom Field ID.
+     * @throws RedmineServiceException If any custom field cannot be found.
      */
     public function getCustomFieldIds(array $columnToNameMap): array
     {

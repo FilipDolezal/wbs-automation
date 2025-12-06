@@ -11,13 +11,21 @@ use App\TaskUploader\Parser\WbsDynamicColumn;
 use App\TaskUploader\Redmine\IssueFactory;
 use App\TaskUploader\Redmine\RedmineService;
 
+/**
+ * Orchestrates the task upload process.
+ *
+ * This facade simplifies the interaction between the Excel parser and the Redmine service.
+ * It manages the hierarchy of tasks (Initiative -> Epic -> Task) by resolving
+ * parent issues (either from cache or by querying Redmine) before creating new ones.
+ */
 class TaskUploaderFacade
 {
+    /** @var IssueFactory Factory for creating Issue DTOs. */
     private readonly IssueFactory $issueFactory;
 
     /**
      * Cache of resolved Redmine Issue IDs.
-     * Key: A unique string representing the issue.
+     * Key: A serialized unique key representing the issue (parentID + subject).
      * Value: The Redmine Issue ID.
      * @var array<string, int>
      */
@@ -30,7 +38,16 @@ class TaskUploaderFacade
     }
 
     /**
-     * @throws RedmineServiceException
+     * Prepares the Facade for processing by resolving necessary Redmine IDs.
+     *
+     * Fetches IDs for Project, Tracker, Status, Priority, and Custom Fields
+     * to initialize the IssueFactory.
+     *
+     * @param string $projectIdentifier
+     * @param string $trackerName
+     * @param string $statusName
+     * @param string $priorityName
+     * @throws RedmineServiceException If any configuration entity cannot be found.
      */
     public function configure(
         string $projectIdentifier,
@@ -56,8 +73,17 @@ class TaskUploaderFacade
     }
 
     /**
-     * @throws IssueCreationException
-     * @throws ExcelParserDefinitionException
+     * Processes a single WBS row and uploads it to Redmine.
+     *
+     * Handles the logic for:
+     * 1. Resolving/Creating the Initiative (Level 1 Parent).
+     * 2. Resolving/Creating the Epic (Level 2 Parent).
+     * 3. Creating the Task itself (Child).
+     *
+     * @param DynamicRow $task The parsed Excel row.
+     * @return int The ID of the created task.
+     * @throws IssueCreationException If the upload fails.
+     * @throws ExcelParserDefinitionException If parsing fails.
      */
     public function upload(DynamicRow $task): int
     {

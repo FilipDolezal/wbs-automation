@@ -16,6 +16,17 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+/**
+ * CLI Command to upload tasks from an Excel file to Redmine.
+ *
+ * Usage:
+ *   bin/cli app:upload-tasks <filepath> <project_identifier> [options]
+ *
+ * Options:
+ *   --tracker, -t  Override the default tracker name.
+ *   --status, -s   Override the default status name.
+ *   --priority, -p Override the default priority name.
+ */
 class UploadTasksCommand extends Command
 {
     public const string ARG_PROJECT = 'project';
@@ -40,6 +51,18 @@ class UploadTasksCommand extends Command
         parent::__construct();
     }
 
+    /**
+     * Executes the command logic.
+     *
+     * 1. Initializes the UI (SymfonyStyle).
+     * 2. Configures the TaskUploaderFacade with project settings.
+     * 3. Parses the Excel file.
+     * 4. Iterates through results and uploads each task.
+     *
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     * @return int Command::SUCCESS or Command::FAILURE
+     */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);

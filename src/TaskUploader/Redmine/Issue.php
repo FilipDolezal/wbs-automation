@@ -2,8 +2,24 @@
 
 namespace App\TaskUploader\Redmine;
 
+/**
+ * Data Transfer Object (DTO) representing a Redmine Issue.
+ *
+ * Encapsulates all the data required to create an issue via the Redmine API.
+ */
 class Issue
 {
+    /**
+     * @param int $projectId Redmine Project ID.
+     * @param int $trackerId Redmine Tracker ID.
+     * @param int $statusId Redmine Status ID.
+     * @param int $priorityId Redmine Priority ID.
+     * @param string $subject The issue subject/title.
+     * @param string|null $description The issue description.
+     * @param int|null $parentId ID of the parent issue.
+     * @param float|null $estimatedHours Estimated hours.
+     * @param array $customFields Array of custom fields key-values.
+     */
     public function __construct(
         public int $projectId,
         public int $trackerId,
@@ -17,6 +33,11 @@ class Issue
     ) {
     }
 
+    /**
+     * Converts the DTO into an array format suitable for the Redmine API client.
+     *
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         $data = [
