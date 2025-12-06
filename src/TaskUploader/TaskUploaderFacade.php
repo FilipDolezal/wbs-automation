@@ -2,18 +2,15 @@
 
 namespace App\TaskUploader;
 
-use App\TaskUploader\WbsTask;
+use App\Common\ExcelParser\DynamicRow;
+use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
 use App\TaskUploader\Exception\IssueCreationException;
 use App\TaskUploader\Exception\RedmineServiceException;
-use App\TaskUploader\IssueFactory;
-
-// New import
-use App\TaskUploader\RedmineService;
-use ReflectionException;
-use RuntimeException;
 
 class TaskUploaderFacade
 {
+    private readonly IssueFactory $issueFactory;
+
     /**
      * Cache of resolved Redmine Issue IDs.
      * Key: A unique string representing the issue.
@@ -22,13 +19,9 @@ class TaskUploaderFacade
      */
     private array $issueCache = [];
 
-    /**
-     * @param array<string, string> $wbsMap WBS COLUMN => CUSTOM FIELD NAME
-     */
     public function __construct(
         private readonly RedmineService $redmineService,
-        private readonly IssueFactory $issueFactory,
-        private readonly array $wbsMap,
+        private readonly WbsDynamicColumns $columns,
     ) {
     }
 
@@ -39,28 +32,40 @@ class TaskUploaderFacade
         string $projectIdentifier,
         string $trackerName,
         string $statusName,
-        string $priorityName
+        string $priorityName,
     ): void
     {
-        $this->issueFactory->configure(
+        /** @var array<string, string> $customFields EXCEL COLUMN => REDMINE CUSTOM FIELD NAME */
+        $customFields = array_map(static fn (WbsDynamicColumn $c) => $c->field, $this->columns->getCustomFields());
+
+        /** @var array<string, int> $customFieldIds EXCEL COLUMN => REDMINE CUSTOM FIELD ID */
+        $customFieldIds = $this->redmineService->getCustomFieldIds($customFields);
+
+        $this->issueFactory = new IssueFactory(
             projectId: $this->redmineService->getProjectIdByIdentifier($projectIdentifier),
             trackerId: $this->redmineService->getTrackerIdByName($trackerName),
             statusId: $this->redmineService->getStatusIdByName($statusName),
             priorityId: $this->redmineService->getPriorityIdByName($priorityName),
-            wbsCustomFieldIdMap: $this->redmineService->getCustomFieldIds($this->wbsMap),
+            customFieldIds: $customFieldIds,
+            columns: $this->columns,
         );
     }
 
     /**
      * @throws IssueCreationException
+     * @throws ExcelParserDefinitionException
      */
-    public function upload(WbsTask $task): int
+    public function upload(DynamicRow $task): int
     {
         // 1. Resolve Initiative
-        $initiativeId = $task->initiative ? $this->getOrUploadParent($task->initiative) : null;
+        /** @var ?string $initiativeString */
+        $initiativeString = $task->get($this->columns->getColumnByIdentifier(WbsDynamicColumns::ID_INITIATIVE));
+        $initiativeId = $initiativeString ? $this->getOrUploadParent($initiativeString) : null;
 
         // 2. Resolve Epic
-        $epicId = $task->epic ? $this->getOrUploadParent($task->epic, $initiativeId) : null;
+        /** @var ?string $epicString */
+        $epicString = $task->get($this->columns->getColumnByIdentifier(WbsDynamicColumns::ID_EPIC));
+        $epicId = $epicString ? $this->getOrUploadParent($epicString, $initiativeId) : null;
 
         // 3. Upload the Task itself
         // Parent is Epic if exists, else Initiative, else null.

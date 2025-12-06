@@ -15,24 +15,30 @@ services:
             $url: '%redmine.url%'
             $apikeyOrUsername: '%redmine.api_key%'
 
-    # WorksheetTableParser for WBS Development sheet
-    App\TaskUploader\WbsParser: ~
-
     # Redmine API Service
     App\TaskUploader\RedmineService: ~
 
-    # Issue Factory
-    App\TaskUploader\IssueFactory: ~
-
     # Task Uploader Facade
-    App\TaskUploader\TaskUploaderFacade:
+    App\TaskUploader\TaskUploaderFacade: ~
+
+    # WBS Column structure definition
+    App\TaskUploader\WbsDynamicColumns:
         arguments:
-            $wbsMap: '%wbs_column_to_redmine_custom_field_map%'
+            $columnDefinition: '%wbs.column_definition%'
+            $columnIdentifiers: '%wbs.column_identifiers%'
+
+    # WBS spreadsheet parser
+    WBSParser:
+        class: 'App\Common\ExcelParser\WorksheetTableParser'
+        arguments:
+            $worksheetName: '%wbs.spreadsheet_name%'
+            $dynamicColumns: '@App\TaskUploader\WbsDynamicColumns'
 
     # Command
     App\TaskUploader\UploadTasksCommand:
         public: true # Must be public for bin/cli
         arguments:
+            $parser: '@WBSParser'
             $defaultTracker: '%redmine.default.tracker%'
             $defaultStatus: '%redmine.default.status%'
             $defaultPriority: '%redmine.default.priority%'

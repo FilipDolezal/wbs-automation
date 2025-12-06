@@ -2,10 +2,10 @@
 
 namespace App\TaskUploader;
 
-use App\TaskUploader\WbsParser;
+use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
+use App\Common\ExcelParser\WorksheetTableParser;
 use App\TaskUploader\Exception\IssueCreationException;
 use App\TaskUploader\Exception\RedmineServiceException;
-use App\TaskUploader\TaskUploaderFacade;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
@@ -27,12 +27,13 @@ class UploadTasksCommand extends Command
     protected static $defaultName = 'app:upload-tasks';
 
     public function __construct(
-        private readonly WbsParser $wbsParser,
+        private readonly WorksheetTableParser $parser,
         private readonly TaskUploaderFacade $taskUploaderFacade,
         private readonly LoggerInterface $logger,
+        private readonly WbsDynamicColumns $dynamicColumns,
         private readonly string $defaultTracker,
         private readonly string $defaultStatus,
-        private readonly string $defaultPriority
+        private readonly string $defaultPriority,
     )
     {
         parent::__construct();
@@ -41,6 +42,7 @@ class UploadTasksCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
         $filePath = $input->getArgument(self::ARG_FILEPATH);
         $project = $input->getArgument(self::ARG_PROJECT);
 
@@ -81,7 +83,7 @@ class UploadTasksCommand extends Command
 
         try
         {
-            $this->wbsParser->open($filePath);
+            $this->parser->open($filePath);
         }
         catch (RuntimeException $e)
         {
@@ -90,19 +92,27 @@ class UploadTasksCommand extends Command
             return Command::FAILURE;
         }
 
-        $this->wbsParser->parse($output);
+        $this->parser->parse($output);
 
-        foreach ($this->wbsParser->getResults() as $task)
+        foreach ($this->parser->getResults() as $task)
         {
+            $taskName = $task->get($this->dynamicColumns->getColumnByIdentifier(WbsDynamicColumns::ID_TASK_NAME));
+
             try
             {
                 $redmineId = $this->taskUploaderFacade->upload($task);
-                $io->info("Created new Redmine Issue [$redmineId]: $task->taskName");
+                $io->info("Created new Redmine Issue [$redmineId]: $taskName");
             }
             catch (IssueCreationException $e)
             {
-                $io->error("Unable to create an Issue: $task->taskName");
+                $io->error("Unable to create an Issue: $taskName");
                 $this->logger->critical('Unable to create an Issue.', ['exception' => $e]);
+                continue;
+            }
+            catch (ExcelParserDefinitionException $e)
+            {
+                $io->error("Wbs structure error: {$e->getMessage()}");
+                $this->logger->error('Wbs structure error.', ['exception' => $e]);
                 continue;
             }
         }

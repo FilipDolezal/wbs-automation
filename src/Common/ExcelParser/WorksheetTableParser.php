@@ -3,9 +3,11 @@
 namespace App\Common\ExcelParser;
 
 use App\Common\ExcelParser\Exception\ExcelParserCellException;
+use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
 use App\Common\ExcelParser\Exception\ExcelParserException;
 use App\Common\ExcelParser\Exception\ExcelParserParseException;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
+use PhpOffice\PhpSpreadsheet\Exception as PhpOfficeSpreadsheetException;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\IReader;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -23,20 +25,21 @@ class WorksheetTableParser
 
     protected bool $processed = false;
 
-    /** @var array<int, RowEntity> */
+    /** @var array<int, DynamicRow> */
     protected array $result = [];
 
     /** @var array<int, ExcelParserException> */
     protected array $failed = [];
 
-    /** @var array<string, ColumnDefinition> */
-    private array $columnMapping = [];
-
-    /** @var class-string<RowEntity> $entityClass */
-    protected string $entityClass;
+    public function __construct(
+        protected string $worksheetName,
+        protected DynamicColumns $dynamicColumns,
+    )
+    {
+    }
 
     /**
-     * @return array<int, RowEntity>
+     * @return array<int, DynamicRow>
      */
     final public function getResults(): array
     {
@@ -63,30 +66,17 @@ class WorksheetTableParser
 
     final public function open(string $filePath): void
     {
-        if (!isset($this->entityClass) || !is_a($this->entityClass, RowEntity::class, true))
-        {
-            throw new RuntimeException('Entity class not set or does not implement RowEntity interface.');
-        }
-
-        $this->columnMapping = ColumnDefinition::fromEntity($this->entityClass);
-
-        if (empty($this->columnMapping))
-        {
-            throw new RuntimeException("No columns defined for entity " . $this->entityClass);
-        }
-
         if (!file_exists($filePath))
         {
             throw new RuntimeException("File not found at path: $filePath");
         }
 
-        $sheetName = $this->entityClass::getSheetName();
         $ss = IOFactory::load($filePath, IReader::READ_DATA_ONLY);
-        $ws = $ss->getSheetByName($sheetName);
+        $ws = $ss->getSheetByName($this->worksheetName);
 
         if ($ws === null)
         {
-            throw new RuntimeException("Sheet '$sheetName' not found.");
+            throw new RuntimeException("Sheet '$this->worksheetName' not found.");
         }
 
         $this->spreadsheet = $ss;
@@ -96,14 +86,10 @@ class WorksheetTableParser
     final public function parse(OutputInterface $output): void
     {
         $headerRowProcessed = false;
-        $columns = array_keys($this->columnMapping);
-        sort($columns);
-        $fstCol = $columns[0];
-        $lstCol = $columns[count($columns) - 1];
 
         foreach ($this->worksheet->getRowIterator() as $rowNumber => $row)
         {
-            $cellIterator = $row->getCellIterator($fstCol, $lstCol);
+            $cellIterator = $row->getCellIterator($this->dynamicColumns->firstColumn, $this->dynamicColumns->lastColumn);
             $cellIterator->setIterateOnlyExistingCells(false);
 
             if (!$headerRowProcessed)
@@ -135,10 +121,9 @@ class WorksheetTableParser
     /**
      * @throws ExcelParserException
      */
-    protected function parseEntity(int $row, CellIterator $cells): object
+    protected function parseEntity(int $row, CellIterator $cells): DynamicRow
     {
-        $className = $this->entityClass;
-        $entity = new $className();
+        $dynamicRow = new DynamicRow();
 
         try
         {
@@ -146,38 +131,36 @@ class WorksheetTableParser
             {
                 $col = $cell->getColumn();
 
-                if (!isset($this->columnMapping[$col]))
+                if (!$this->dynamicColumns->isDefined($col))
                 {
                     continue;
                 }
 
-                $definition = $this->columnMapping[$col];
+                $definition = $this->dynamicColumns->get($col);
 
                 $value = $this->extractValue($cell, $definition);
 
-                $definition->property->setValue($entity, $value);
+                $dynamicRow->set($col, $value);
             }
-
-            $entity->afterConstruct();
         }
-        catch (\PhpOffice\PhpSpreadsheet\Exception $e)
+        catch (PhpOfficeSpreadsheetException $e)
         {
             throw new ExcelParserParseException("Failed to iterate cells", ExcelParserException::CODE_UNKNOWN_ERROR, $e);
         }
 
-        return $entity;
+        return $dynamicRow;
     }
 
     /**
      * @throws ExcelParserException
      */
-    private function extractValue(Cell $cell, ColumnDefinition $definition): mixed
+    private function extractValue(Cell $cell, DynamicColumn $definition): mixed
     {
         try
         {
             $col = $cell->getColumn();
         }
-        catch (\PhpOffice\PhpSpreadsheet\Exception $e)
+        catch (PhpOfficeSpreadsheetException $e)
         {
             throw new ExcelParserParseException(code: ExcelParserException::CODE_CELL_NOT_FOUND, previous: $e);
         }

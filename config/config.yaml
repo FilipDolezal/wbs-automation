@@ -24,5 +24,5 @@ services:
     GuzzleHttp\Client: ~
     GuzzleHttp\Psr7\HttpFactory: ~
 
-  # Aliases
+    # Aliases
     Psr\Log\LoggerInterface: '@monolog.logger'

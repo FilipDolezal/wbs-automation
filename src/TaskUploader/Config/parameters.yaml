@@ -7,6 +7,53 @@ parameters:
     redmine.default.status: 'Nový'
     redmine.default.priority: 'Default'
 
-    wbs_column_to_redmine_custom_field_map:
-        F: 'Odhad pro programátora'
-        N: 'Odkaz na specifikaci'
+    # WBS configuration
+    wbs.spreadsheet_name: 'WBS - vývoj'
+    wbs.column_identifiers:
+        taskName: 'A'
+        initiative: 'B'
+        epic: 'C'
+        redmineId: 'D'
+
+    # available field names are parameters of redmine issue:
+    # - subject
+    # - description
+    # - is_private - Use true or false to indicate whether the issue is private or not
+    # - estimated_hours - Number of hours estimated for issue
+
+    # custom_field is a place for name identifier of a redmine custom field
+    wbs.column_definition:
+        A:
+          type: string
+          nullable: false
+          field: subject
+
+        B:
+          type: string
+
+        C:
+          type: string
+
+        D:
+          type: int
+
+        F:
+          type: float
+          custom_field: 'Odhad pro programátora'
+
+        K:
+          type: float
+          calculated: true
+          field: estimatedHours
+
+        L:
+          type: string
+          field: description
+
+        M:
+          type: string
+          field: acceptanceCriteria
+
+        N:
+          type: string
+          custom_field: 'Odkaz na specifikaci'
