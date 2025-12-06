@@ -6,6 +6,7 @@ use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
 use App\Common\ExcelParser\WorksheetTableParser;
 use App\TaskUploader\Exception\IssueCreationException;
 use App\TaskUploader\Exception\RedmineServiceException;
+use App\TaskUploader\Parser\WbsColumnDefinition;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
@@ -30,7 +31,7 @@ class UploadTasksCommand extends Command
         private readonly WorksheetTableParser $parser,
         private readonly TaskUploaderFacade $taskUploaderFacade,
         private readonly LoggerInterface $logger,
-        private readonly WbsDynamicColumns $dynamicColumns,
+        private readonly WbsColumnDefinition $columns,
         private readonly string $defaultTracker,
         private readonly string $defaultStatus,
         private readonly string $defaultPriority,
@@ -96,7 +97,7 @@ class UploadTasksCommand extends Command
 
         foreach ($this->parser->getResults() as $task)
         {
-            $taskName = $task->get($this->dynamicColumns->getColumnByIdentifier(WbsDynamicColumns::ID_TASK_NAME));
+            $taskName = $task->get($this->columns->getColumnByIdentifier(WbsColumnDefinition::ID_TASK_NAME));
 
             try
             {

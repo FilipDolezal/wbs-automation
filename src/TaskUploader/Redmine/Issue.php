@@ -1,6 +1,6 @@
 <?php
 
-namespace App\TaskUploader;
+namespace App\TaskUploader\Redmine;
 
 class Issue
 {

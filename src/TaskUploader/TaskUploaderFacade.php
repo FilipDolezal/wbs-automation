@@ -6,6 +6,10 @@ use App\Common\ExcelParser\DynamicRow;
 use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
 use App\TaskUploader\Exception\IssueCreationException;
 use App\TaskUploader\Exception\RedmineServiceException;
+use App\TaskUploader\Parser\WbsColumnDefinition;
+use App\TaskUploader\Parser\WbsDynamicColumn;
+use App\TaskUploader\Redmine\IssueFactory;
+use App\TaskUploader\Redmine\RedmineService;
 
 class TaskUploaderFacade
 {
@@ -21,7 +25,7 @@ class TaskUploaderFacade
 
     public function __construct(
         private readonly RedmineService $redmineService,
-        private readonly WbsDynamicColumns $columns,
+        private readonly WbsColumnDefinition $columns,
     ) {
     }
 
@@ -59,12 +63,12 @@ class TaskUploaderFacade
     {
         // 1. Resolve Initiative
         /** @var ?string $initiativeString */
-        $initiativeString = $task->get($this->columns->getColumnByIdentifier(WbsDynamicColumns::ID_INITIATIVE));
+        $initiativeString = $task->get($this->columns->getColumnByIdentifier(WbsColumnDefinition::ID_INITIATIVE));
         $initiativeId = $initiativeString ? $this->getOrUploadParent($initiativeString) : null;
 
         // 2. Resolve Epic
         /** @var ?string $epicString */
-        $epicString = $task->get($this->columns->getColumnByIdentifier(WbsDynamicColumns::ID_EPIC));
+        $epicString = $task->get($this->columns->getColumnByIdentifier(WbsColumnDefinition::ID_EPIC));
         $epicId = $epicString ? $this->getOrUploadParent($epicString, $initiativeId) : null;
 
         // 3. Upload the Task itself

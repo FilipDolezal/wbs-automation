@@ -8,7 +8,7 @@ use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
  * @template T of DynamicColumn
  * @phpstan-type Attributes array<string, string|bool|null>
  */
-readonly class DynamicColumns
+readonly class ColumnDefinition
 {
     /** @var array<string, T> */
     protected array $columns;

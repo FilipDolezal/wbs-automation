@@ -1,15 +1,15 @@
 <?php
 
-namespace App\TaskUploader;
+namespace App\TaskUploader\Parser;
 
-use App\Common\ExcelParser\DynamicColumns;
+use App\Common\ExcelParser\ColumnDefinition;
 use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
 
 /**
- * @phpstan-import-type Attributes from DynamicColumns
- * @extends DynamicColumns<WbsDynamicColumn>
+ * @phpstan-import-type Attributes from ColumnDefinition
+ * @extends ColumnDefinition<WbsDynamicColumn>
  */
-readonly class WbsDynamicColumns extends DynamicColumns
+readonly class WbsColumnDefinition extends ColumnDefinition
 {
     public const string ID_TASK_NAME = 'taskName';
     public const string ID_INITIATIVE = 'initiative';

@@ -16,13 +16,13 @@ services:
             $apikeyOrUsername: '%redmine.api_key%'
 
     # Redmine API Service
-    App\TaskUploader\RedmineService: ~
+    App\TaskUploader\Redmine\RedmineService: ~
 
     # Task Uploader Facade
     App\TaskUploader\TaskUploaderFacade: ~
 
     # WBS Column structure definition
-    App\TaskUploader\WbsDynamicColumns:
+    App\TaskUploader\Parser\WbsColumnDefinition:
         arguments:
             $columnDefinition: '%wbs.column_definition%'
             $columnIdentifiers: '%wbs.column_identifiers%'
@@ -32,7 +32,7 @@ services:
         class: 'App\Common\ExcelParser\WorksheetTableParser'
         arguments:
             $worksheetName: '%wbs.spreadsheet_name%'
-            $dynamicColumns: '@App\TaskUploader\WbsDynamicColumns'
+            $dynamicColumns: '@App\TaskUploader\Parser\WbsColumnDefinition'
 
     # Command
     App\TaskUploader\UploadTasksCommand:

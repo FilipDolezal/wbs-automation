@@ -1,6 +1,6 @@
 <?php
 
-namespace App\TaskUploader;
+namespace App\TaskUploader\Redmine;
 
 use App\TaskUploader\Exception\IssueCreationException;
 use App\TaskUploader\Exception\RedmineServiceException;

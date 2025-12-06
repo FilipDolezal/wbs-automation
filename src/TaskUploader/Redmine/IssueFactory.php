@@ -1,9 +1,10 @@
 <?php
 
-namespace App\TaskUploader;
+namespace App\TaskUploader\Redmine;
 
 use App\Common\ExcelParser\DynamicRow;
 use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
+use App\TaskUploader\Parser\WbsColumnDefinition;
 
 readonly class IssueFactory
 {
@@ -13,7 +14,7 @@ readonly class IssueFactory
         private int $statusId,
         private int $priorityId,
         private array $customFieldIds,
-        private WbsDynamicColumns $columns,
+        private WbsColumnDefinition $columns,
     )
     {
     }

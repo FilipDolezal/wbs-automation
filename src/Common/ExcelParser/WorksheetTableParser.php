@@ -33,7 +33,7 @@ class WorksheetTableParser
 
     public function __construct(
         protected string $worksheetName,
-        protected DynamicColumns $dynamicColumns,
+        protected ColumnDefinition $columns,
     )
     {
     }
@@ -89,7 +89,7 @@ class WorksheetTableParser
 
         foreach ($this->worksheet->getRowIterator() as $rowNumber => $row)
         {
-            $cellIterator = $row->getCellIterator($this->dynamicColumns->firstColumn, $this->dynamicColumns->lastColumn);
+            $cellIterator = $row->getCellIterator($this->columns->firstColumn, $this->columns->lastColumn);
             $cellIterator->setIterateOnlyExistingCells(false);
 
             if (!$headerRowProcessed)
@@ -101,7 +101,7 @@ class WorksheetTableParser
 
             try
             {
-                $this->result[$rowNumber] = $this->parseEntity($rowNumber, $cellIterator);
+                $this->result[$rowNumber] = $this->parseRow($cellIterator);
             }
             catch (ExcelParserCellException $e)
             {
@@ -121,7 +121,7 @@ class WorksheetTableParser
     /**
      * @throws ExcelParserException
      */
-    protected function parseEntity(int $row, CellIterator $cells): DynamicRow
+    protected function parseRow(CellIterator $cells): DynamicRow
     {
         $dynamicRow = new DynamicRow();
 
@@ -131,12 +131,12 @@ class WorksheetTableParser
             {
                 $col = $cell->getColumn();
 
-                if (!$this->dynamicColumns->isDefined($col))
+                if (!$this->columns->isDefined($col))
                 {
                     continue;
                 }
 
-                $definition = $this->dynamicColumns->get($col);
+                $definition = $this->columns->get($col);
 
                 $value = $this->extractValue($cell, $definition);
 
