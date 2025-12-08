@@ -62,18 +62,18 @@ readonly class WbsColumnDefinition extends ColumnDefinition
      */
     public function getCustomFields(): array
     {
-        return array_filter($this->columns, static fn (WbsDynamicColumn $c) => $c !== null && $c->custom);
+        return array_filter($this->columns, static fn (WbsDynamicColumn $c) => $c->field !== null && $c->custom);
     }
 
     /**
      * Retrieves the column letter associated with a specific logical identifier.
      *
      * @param string $identifier One of the ID_* constants.
-     * @return string|null The column letter or null if not found.
+     * @return string The column letter.
      */
-    public function getColumnByIdentifier(string $identifier): ?string
+    public function getColumnByIdentifier(string $identifier): string
     {
-        return $this->columnIdentifiers[$identifier] ?? null;
+        return $this->columnIdentifiers[$identifier];
     }
 
     /**

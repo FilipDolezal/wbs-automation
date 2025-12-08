@@ -9,7 +9,7 @@ use Exception;
  *
  * Provides a set of standard error codes to categorize failures.
  */
-abstract class ExcelParserException extends Exception
+class ExcelParserException extends Exception
 {
     /** @var int Error code when a cell cannot be located. */
     public const int CODE_CELL_NOT_FOUND = 100;

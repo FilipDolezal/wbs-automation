@@ -2,6 +2,8 @@
 
 namespace App\Common\ExcelParser\Exception;
 
+use Throwable;
+
 /**
  * Exception thrown when a specific cell fails validation or parsing.
  *
@@ -13,9 +15,9 @@ class ExcelParserCellException extends ExcelParserException
     /**
      * @param int $code One of the ExcelParserException::CODE_* constants.
      * @param string $cell The cell coordinate (e.g., 'A1').
-     * @param \Throwable|null $previous Optional previous exception.
+     * @param Throwable|null $previous Optional previous exception.
      */
-    public function __construct(int $code, public string $cell, ?\Throwable $previous = null)
+    public function __construct(int $code, public string $cell, ?Throwable $previous = null)
     {
         $description = self::getMessageForCode($code);
         $message = sprintf('Cell [%s]: %s', $cell, $description);

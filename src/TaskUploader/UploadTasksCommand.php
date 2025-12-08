@@ -2,22 +2,23 @@
 
 namespace App\TaskUploader;
 
+use App\Common\CommandLogTrait;
 use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
+use App\Common\ExcelParser\Exception\ExcelParserException;
 use App\Common\ExcelParser\WorksheetTableParser;
 use App\Common\ExcelWriter\WorksheetTableWriter;
 use App\TaskUploader\Exception\IssueCreationException;
-use App\TaskUploader\Exception\RedmineServiceException;
 use App\TaskUploader\Parser\WbsColumnDefinition;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Reader\IReader;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
+use Throwable;
 
 /**
  * CLI Command to upload tasks from an Excel file to Redmine.
@@ -32,12 +33,15 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  */
 class UploadTasksCommand extends Command
 {
+    use CommandLogTrait;
+
     public const string ARG_PROJECT = 'project';
     public const string ARG_FILEPATH = 'filepath';
 
     public const string OPT_TRACKER = 'tracker';
     public const string OPT_STATUS = 'status';
     public const string OPT_PRIORITY = 'priority';
+    public const string OPT_SKIP_ERROR = 'skip-error';
 
     protected static $defaultName = 'app:upload-tasks';
 
@@ -70,122 +74,108 @@ class UploadTasksCommand extends Command
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io = new SymfonyStyle($input, $output);
+        $this->setupIO($input, $output);
 
         $filePath = $input->getArgument(self::ARG_FILEPATH);
         $project = $input->getArgument(self::ARG_PROJECT);
-
-        // Resolve configuration (Option > Default)
         $tracker = $input->getOption(self::OPT_TRACKER) ?? $this->defaultTracker;
         $status = $input->getOption(self::OPT_STATUS) ?? $this->defaultStatus;
         $priority = $input->getOption(self::OPT_PRIORITY) ?? $this->defaultPriority;
+        $skipError = $input->getOption(self::OPT_SKIP_ERROR);
+
+        $this->logConfig('Starting WBS upload process', [
+            "Project" => $project,
+            "File" => $filePath,
+            "Sheet" => $this->worksheetName,
+            "Tracker" => $tracker,
+            "Status" => $status,
+            "Priority" => $priority,
+            "Skip Parsing errors" => $skipError ? "Yes" : "No"
+        ]);
 
         try
         {
-            // Load spreadsheet once
-            if (!file_exists($filePath))
-            {
-                throw new RuntimeException("Input file not found: $filePath");
-            }
+            $this->setupWorksheet($filePath);
+            $this->taskUploaderFacade->configure($project, $tracker, $status, $priority);
+        }
+        catch (Throwable $e)
+        {
+            $this->logException($e);
+            return Command::FAILURE;
+        }
 
-            $spreadsheet = IOFactory::load($filePath, IReader::READ_DATA_ONLY);
-            $worksheet = $spreadsheet->getSheetByName($this->worksheetName);
-
-            if ($worksheet === null)
-            {
-                throw new RuntimeException("Sheet '{$this->worksheetName}' not found in input file.");
-            }
-
-            // Set parser's worksheet
-            $this->parser->setWorksheet($worksheet);
-
-            // Prepare Writer
-            $path = pathinfo($filePath);
-            $outputFilePath = sprintf("%s/%s_processed.%s", $path['dirname'], $path['filename'], $path['extension']);
-
-            // Set writer's spreadsheet and output path
-            $this->writer->setSpreadsheet($spreadsheet, $this->worksheetName, $outputFilePath);
+        try
+        {
+            $this->logInfo('Parsing file...');
+            $this->parser->parse(!$skipError);
         }
         catch (RuntimeException $e)
         {
-            $io->error('An error occurred while opening/preparing the file: ' . $e->getMessage());
-            $this->logger->critical('An error occurred while opening/preparing the file.', ['exception' => $e]);
+            $this->logException($e, 'An error occurred while parsing the file');
+            return Command::FAILURE;
+        }
+        catch (ExcelParserException $e)
+        {
+            $this->logException($e);
             return Command::FAILURE;
         }
 
-        $io->title("Starting WBS upload process");
-        $io->text([
-            "Project: $project",
-            "File: $filePath",
-            "Sheet: $this->worksheetName",
-            "Tracker: $tracker",
-            "Status: $status",
-            "Priority: $priority"
-        ]);
-
-        $this->logger->info('Starting WBS upload process', [
-            'project' => $project,
-            'filepath' => $filePath,
-            'sheet' => $this->worksheetName,
-            'config' => [
-                'tracker' => $tracker,
-                'status' => $status,
-                'priority' => $priority
-            ]
-        ]);
-
-        try
-        {
-            $this->taskUploaderFacade->configure($project, $tracker, $status, $priority);
-        }
-        catch (RedmineServiceException $e)
-        {
-            $io->error('Redmine service error: ' . $e->getMessage());
-            $this->logger->error('Redmine service error.', ['exception' => $e]);
-            return Command::FAILURE;
-        }
-
-        $this->parser->parse($output);
+        $results = $this->parser->getResults();
+        $parsedTaskCount = count($results);
+        $this->logInfo("Successfully parsed [$parsedTaskCount] tasks. Uploading tasks...");
 
         $redmineIdColumn = $this->columns->getColumnByIdentifier(WbsColumnDefinition::ID_REDMINE_ID);
+        $taskNameColumn = $this->columns->getColumnByIdentifier(WbsColumnDefinition::ID_TASK_NAME);
 
-        foreach ($this->parser->getResults() as $rowNumber => $task)
+        $progressBar = new ProgressBar($output, $parsedTaskCount);
+        $progressBar->start();
+
+        foreach ($results as $rowNumber => $task)
         {
-            $taskName = $task->get($this->columns->getColumnByIdentifier(WbsColumnDefinition::ID_TASK_NAME));
+            $taskName = $task->get($taskNameColumn);
 
             try
             {
                 $redmineId = $this->taskUploaderFacade->upload($task);
-                $io->info("Created new Redmine Issue [$redmineId]: $taskName");
 
-                if ($redmineIdColumn !== null)
-                {
-                    $this->writer->write($rowNumber, $redmineIdColumn, $redmineId);
-                }
+                $this->logger->info(sprintf(
+                    "[%s/%s] Created new Redmine Issue [%s]: %s",
+                    $progressBar->getProgress() + 1,
+                    $progressBar->getMaxSteps(),
+                    $redmineId,
+                    $taskName
+                ));
+
+                $this->writer->write($rowNumber, $redmineIdColumn, $redmineId);
             }
             catch (IssueCreationException $e)
             {
-                $io->error("Unable to create an Issue: $taskName");
-                $this->logger->critical('Unable to create an Issue.', ['exception' => $e]);
-                continue;
+                $this->logException($e, "Unable to create an Issue: $taskName");
             }
             catch (ExcelParserDefinitionException $e)
             {
-                $io->error("Wbs structure error: {$e->getMessage()}");
-                $this->logger->error('Wbs structure error.', ['exception' => $e]);
-                continue;
+                $this->logException($e, "Wbs structure error: {$e->getMessage()}");
+            }
+            finally
+            {
+                $progressBar->advance();
             }
         }
 
+        $progressBar->finish();
+
         try
         {
-            $this->writer->save();
-            $io->success("Processed file saved to: $outputFilePath");
+            $pi = pathinfo($filePath);
+            $outputFilePath = sprintf("%s/%s_processed.%s", $pi['dirname'], $pi['filename'], $pi['extension']);
+
+            $this->writer->save($outputFilePath);
+            $this->logInfo("Processed file saved to: $outputFilePath");
         }
         catch (\Exception $e)
         {
-            $io->error("Failed to save output file: " . $e->getMessage());
-            $this->logger->critical('Failed to save output file.', ['exception' => $e]);
+            $this->logException($e, "Failed to save output file: {$e->getMessage()}");
+            return Command::FAILURE;
         }
 
         return Command::SUCCESS;
@@ -199,6 +189,27 @@ class UploadTasksCommand extends Command
             ->addArgument(self::ARG_PROJECT, InputArgument::REQUIRED, 'The project identifier.')
             ->addOption(self::OPT_TRACKER, 't', InputOption::VALUE_OPTIONAL, 'The tracker name to use.', null)
             ->addOption(self::OPT_STATUS, 's', InputOption::VALUE_OPTIONAL, 'The status name to use.', null)
-            ->addOption(self::OPT_PRIORITY, 'p', InputOption::VALUE_OPTIONAL, 'The priority name to use.', null);
+            ->addOption(self::OPT_PRIORITY, 'p', InputOption::VALUE_OPTIONAL, 'The priority name to use.', null)
+            ->addOption(self::OPT_SKIP_ERROR, null, InputOption::VALUE_OPTIONAL, 'Skip parsing errors.', true);
+    }
+
+    private function setupWorksheet(string $filePath): void
+    {
+        // Load spreadsheet once
+        if (!file_exists($filePath))
+        {
+            throw new RuntimeException("Input file not found: $filePath");
+        }
+
+        $spreadsheet = IOFactory::load($filePath);
+        $worksheet = $spreadsheet->getSheetByName($this->worksheetName);
+
+        if ($worksheet === null)
+        {
+            throw new RuntimeException("Sheet '{$this->worksheetName}' not found in input file.");
+        }
+
+        $this->parser->setWorksheet($worksheet);
+        $this->writer->setWorksheet($worksheet);
     }
 }

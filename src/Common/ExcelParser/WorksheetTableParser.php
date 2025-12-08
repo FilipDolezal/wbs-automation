@@ -87,13 +87,13 @@ class WorksheetTableParser
     /**
      * Iterates through the worksheet rows and parses them.
      *
-     * Skips the first row (header). Errors are logged to the output and stored
+     * Skips the first row (header).
      * in the failures list, allowing the process to continue for subsequent rows.
      *
-     * @param OutputInterface $output Console output for logging errors.
      * @throws RuntimeException If no worksheet has been set.
+     * @throws ExcelParserException If $throw = true and a row fails validation.
      */
-    final public function parse(OutputInterface $output): void
+    final public function parse(bool $throw = false): void
     {
         if (!isset($this->worksheet))
         {
@@ -118,14 +118,17 @@ class WorksheetTableParser
             {
                 $this->result[$rowNumber] = $this->parseRow($cellIterator);
             }
-            catch (ExcelParserCellException $e)
-            {
-                $output->writeln(sprintf("<error>Row [%s] %s</error>", $rowNumber, $e->getMessage()));
-                $this->failed[$rowNumber] = $e;
-            }
             catch (ExcelParserException $e)
             {
-                $output->writeln(sprintf("<error>Row [%s] Error: %s</error>", $rowNumber, $e->getMessage()));
+                if ($throw)
+                {
+                    throw new ExcelParserException(
+                        "Row [$rowNumber] {$e->getMessage()}",
+                        $e->getCode(),
+                        $e->getPrevious()
+                    );
+                }
+
                 $this->failed[$rowNumber] = $e;
             }
         }
