@@ -5,3 +5,4 @@ composer.lock
 var/log/
 src/TaskUploader/Config/parameters.yaml
 /files/
+/BP-docs
