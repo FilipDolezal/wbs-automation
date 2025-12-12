@@ -3,23 +3,17 @@ parameters:
     redmine.api_key: 'YOUR_REDMINE_API_KEY' # Example: Your Redmine API key
 
     # Default Redmine configuration for tasks
-    redmine.default.tracker: 'Bug'
-    redmine.default.status: 'New'
-    redmine.default.priority: 'Normal'
+    redmine.default.tracker: 'Požadavek'
+    redmine.default.status: 'Nový'
+    redmine.default.priority: 'Default'
 
     # WBS configuration
-    wbs.spreadsheet_name: 'Sheet1'
+    wbs.spreadsheet_name: 'WBS - vývoj'
     wbs.column_identifiers:
         taskName: 'A'
         initiative: 'B'
         epic: 'C'
         redmineId: 'D'
-
-    # available field names are parameters of redmine issue:
-    # - subject
-    # - description
-    # - is_private - Use true or false to indicate whether the issue is private or not
-    # - estimated_hours - Number of hours estimated for issue
 
     # custom_field is a place for name identifier of a redmine custom field
     wbs.column_definition:
@@ -39,7 +33,7 @@ parameters:
 
         F:
           type: float
-          custom_field: 'Estimated Development Hours'
+          custom_field: 'Odhad pro programátora'
 
         K:
           type: float
@@ -56,4 +50,4 @@ parameters:
 
         N:
           type: string
-          custom_field: 'Link to Specification'
+          custom_field: 'Odkaz na specifikaci'
