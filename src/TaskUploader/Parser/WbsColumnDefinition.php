@@ -16,11 +16,10 @@ use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
  */
 readonly class WbsColumnDefinition extends ColumnDefinition
 {
-    public const string ID_TASK_NAME = 'taskName';
-    public const string ID_INITIATIVE = 'initiative';
-    public const string ID_EPIC = 'epic';
-    public const string ID_REDMINE_ID = 'redmineId';
-    private const array IDENTIFIERS = [self::ID_TASK_NAME, self::ID_INITIATIVE, self::ID_EPIC, self::ID_REDMINE_ID];
+    public string $columnTaskName;
+    public string $columnInitiative;
+    public string $columnEpic;
+    public string $columnRedmineId;
 
     /** @var array<string, string> $fields Map of Field Name => Column Letter */
     private array $fields;
@@ -30,17 +29,17 @@ readonly class WbsColumnDefinition extends ColumnDefinition
      * @param array<string, string> $columnIdentifiers Map of logical ID => Column Letter.
      * @throws ExcelParserDefinitionException If required identifiers are missing.
      */
-    public function __construct(array $columnDefinition, private array $columnIdentifiers)
+    public function __construct(array $columnDefinition, array $columnIdentifiers)
     {
         parent::__construct($columnDefinition);
 
-        foreach (self::IDENTIFIERS as $identifier)
-        {
-            if (!isset($columnIdentifiers[$identifier]))
-            {
-                throw new ExcelParserDefinitionException("You must define column for identifier [$identifier].");
-            }
-        }
+        $columnParser = static fn (string $identifier) => $columnIdentifiers[$identifier]
+            ?? throw new ExcelParserDefinitionException("You must define column for identifier [$identifier].");
+
+        $this->columnTaskName = $columnParser('taskName');
+        $this->columnInitiative = $columnParser('initiative');
+        $this->columnEpic = $columnParser('epic');
+        $this->columnRedmineId = $columnParser('redmineId');
 
         $fields = [];
 
@@ -63,17 +62,6 @@ readonly class WbsColumnDefinition extends ColumnDefinition
     public function getCustomFields(): array
     {
         return array_filter($this->columns, static fn (WbsDynamicColumn $c) => $c->field !== null && $c->custom);
-    }
-
-    /**
-     * Retrieves the column letter associated with a specific logical identifier.
-     *
-     * @param string $identifier One of the ID_* constants.
-     * @return string The column letter.
-     */
-    public function getColumnByIdentifier(string $identifier): string
-    {
-        return $this->columnIdentifiers[$identifier];
     }
 
     /**

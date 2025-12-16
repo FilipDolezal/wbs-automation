@@ -48,6 +48,41 @@ readonly class RedmineService
     }
 
     /**
+     * Sends a request to update an existing issue in Redmine.
+     *
+     * @param int $issueId The ID of the issue to update.
+     * @param Issue $issue The issue DTO with updated fields.
+     * @return int The ID of the updated issue.
+     * @throws IssueCreationException If the API call fails or returns an error.
+     */
+    public function updateIssue(int $issueId, Issue $issue): int
+    {
+        /** @var SimpleXMLElement|false|string $response */
+        $response = $this->client->getApi('issue')->update($issueId, $issue->toArray());
+
+        if ($response instanceof SimpleXMLElement)
+        {
+            if (isset($response->issue->id))
+            {
+                return (int)$response->issue->id;
+            }
+
+            if (isset($response->error))
+            {
+                throw new IssueCreationException(json_encode($response->error, JSON_PARTIAL_OUTPUT_ON_ERROR));
+            }
+        }
+
+        // The Redmine API for update usually returns an empty body on success.
+        // If we reach here without an error or an XML response, assume success and return the original ID.
+        if ($response === '') {
+            return $issueId;
+        }
+
+        throw new IssueCreationException("Unknown API call error during update: $response");
+    }
+
+    /**
      * Searches for an existing issue by subject (and optional parent).
      *
      * This is used to prevent creating duplicate Initiatives or Epics.

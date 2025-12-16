@@ -30,3 +30,7 @@ up-redmine:
 clear-logs:
 	rm -rf var/log/*
 	@echo "Log files cleared."
+
+# Install PHP dependencies
+composer-install ci:
+	docker-compose exec app composer install

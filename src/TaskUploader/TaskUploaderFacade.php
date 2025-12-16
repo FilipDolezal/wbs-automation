@@ -31,6 +31,11 @@ class TaskUploaderFacade
      */
     private array $issueCache = [];
 
+    /**
+     * @var string How to handle existing tasks found by Redmine ID.
+     */
+    private string $existingTaskHandler;
+
     public function __construct(
         private readonly RedmineService $redmineService,
         private readonly WbsColumnDefinition $columns,
@@ -54,8 +59,11 @@ class TaskUploaderFacade
         string $trackerName,
         string $statusName,
         string $priorityName,
+        string $existingTaskHandler,
     ): void
     {
+        $this->existingTaskHandler = $existingTaskHandler;
+
         /** @var array<string, string> $customFields EXCEL COLUMN => REDMINE CUSTOM FIELD NAME */
         $customFields = array_map(static fn (WbsDynamicColumn $c) => $c->field, $this->columns->getCustomFields());
 
@@ -87,24 +95,44 @@ class TaskUploaderFacade
      */
     public function upload(DynamicRow $task): int
     {
-        // 1. Resolve Initiative
+        // Resolve old Redmine ID
+        /** @var ?int $oldRedmineId */
+        $oldRedmineId = $task->get($this->columns->columnRedmineId);
+        if ($oldRedmineId !== null && $this->existingTaskHandler === UploadTasksCommand::HANDLER_SKIP)
+        {
+            return $oldRedmineId;
+        }
+
+        // Resolve Initiative
         /** @var ?string $initiativeString */
-        $initiativeString = $task->get($this->columns->getColumnByIdentifier(WbsColumnDefinition::ID_INITIATIVE));
+        $initiativeString = $task->get($this->columns->columnInitiative);
         $initiativeId = $initiativeString ? $this->getOrUploadParent($initiativeString) : null;
 
-        // 2. Resolve Epic
+        // Resolve Epic
         /** @var ?string $epicString */
-        $epicString = $task->get($this->columns->getColumnByIdentifier(WbsColumnDefinition::ID_EPIC));
+        $epicString = $task->get($this->columns->columnEpic);
         $epicId = $epicString ? $this->getOrUploadParent($epicString, $initiativeId) : null;
 
-        // 3. Upload the Task itself
+        // Upload the Task itself
         // Parent is Epic if exists, else Initiative, else null.
         $parentId = $epicId ?? $initiativeId;
 
         // Create Issue DTO using Factory
         $issue = $this->issueFactory->createFromWbsTask($task, $parentId);
 
-        // Use RedmineService to create the task
+        if ($oldRedmineId !== null)
+        {
+            return match ($this->existingTaskHandler)
+            {
+                // Update existing task
+                UploadTasksCommand::HANDLER_UPDATE => $this->redmineService->updateIssue($oldRedmineId, $issue),
+
+                // Create a new (duplicate task)
+                UploadTasksCommand::HANDLER_NEW => $this->redmineService->createIssue($issue),
+            };
+        }
+
+        // Create a new task
         return $this->redmineService->createIssue($issue);
     }
 

@@ -42,6 +42,11 @@ class UploadTasksCommand extends Command
     public const string OPT_STATUS = 'status';
     public const string OPT_PRIORITY = 'priority';
     public const string OPT_SKIP_ERROR = 'skip-error';
+    public const string OPT_EXISTING_TASK_HANDLER = 'existing-task-handler';
+
+    public const string HANDLER_SKIP = 'skip';
+    public const string HANDLER_UPDATE = 'update';
+    public const string HANDLER_NEW = 'new';
 
     protected static $defaultName = 'app:upload-tasks';
 
@@ -78,10 +83,11 @@ class UploadTasksCommand extends Command
 
         $filePath = $input->getArgument(self::ARG_FILEPATH);
         $project = $input->getArgument(self::ARG_PROJECT);
-        $tracker = $input->getOption(self::OPT_TRACKER) ?? $this->defaultTracker;
-        $status = $input->getOption(self::OPT_STATUS) ?? $this->defaultStatus;
-        $priority = $input->getOption(self::OPT_PRIORITY) ?? $this->defaultPriority;
+        $tracker = $input->getOption(self::OPT_TRACKER);
+        $status = $input->getOption(self::OPT_STATUS);
+        $priority = $input->getOption(self::OPT_PRIORITY);
         $skipError = $input->getOption(self::OPT_SKIP_ERROR);
+        $existingTaskHandler = $input->getOption(self::OPT_EXISTING_TASK_HANDLER);
 
         $this->logConfig('Starting WBS upload process', [
             "Project" => $project,
@@ -90,13 +96,14 @@ class UploadTasksCommand extends Command
             "Tracker" => $tracker,
             "Status" => $status,
             "Priority" => $priority,
-            "Skip Parsing errors" => $skipError ? "Yes" : "No"
+            "Skip Parsing errors" => $skipError ? "Yes" : "No",
+            "Existing Task Handler" => $existingTaskHandler
         ]);
 
         try
         {
             $this->setupWorksheet($filePath);
-            $this->taskUploaderFacade->configure($project, $tracker, $status, $priority);
+            $this->taskUploaderFacade->configure($project, $tracker, $status, $priority, $existingTaskHandler);
         }
         catch (Throwable $e)
         {
@@ -124,29 +131,27 @@ class UploadTasksCommand extends Command
         $parsedTaskCount = count($results);
         $this->logInfo("Successfully parsed [$parsedTaskCount] tasks. Uploading tasks...");
 
-        $redmineIdColumn = $this->columns->getColumnByIdentifier(WbsColumnDefinition::ID_REDMINE_ID);
-        $taskNameColumn = $this->columns->getColumnByIdentifier(WbsColumnDefinition::ID_TASK_NAME);
-
         $progressBar = new ProgressBar($output, $parsedTaskCount);
         $progressBar->start();
 
         foreach ($results as $rowNumber => $task)
         {
-            $taskName = $task->get($taskNameColumn);
+            /** @var string $taskName */
+            $taskName = $task->get($this->columns->columnTaskName);
 
             try
             {
                 $redmineId = $this->taskUploaderFacade->upload($task);
 
                 $this->logger->info(sprintf(
-                    "[%s/%s] Created new Redmine Issue [%s]: %s",
+                    "[%s/%s] Processed Redmine Issue [%s]: %s",
                     $progressBar->getProgress() + 1,
                     $progressBar->getMaxSteps(),
                     $redmineId,
                     $taskName
                 ));
 
-                $this->writer->write($rowNumber, $redmineIdColumn, $redmineId);
+                $this->writer->write($rowNumber, $this->columns->columnRedmineId, $redmineId);
             }
             catch (IssueCreationException $e)
             {
@@ -187,10 +192,22 @@ class UploadTasksCommand extends Command
             ->setDescription('Uploads tasks from an Excel file to Redmine.')
             ->addArgument(self::ARG_FILEPATH, InputArgument::REQUIRED, 'The path to the Excel file.')
             ->addArgument(self::ARG_PROJECT, InputArgument::REQUIRED, 'The project identifier.')
-            ->addOption(self::OPT_TRACKER, 't', InputOption::VALUE_OPTIONAL, 'The tracker name to use.', null)
-            ->addOption(self::OPT_STATUS, 's', InputOption::VALUE_OPTIONAL, 'The status name to use.', null)
-            ->addOption(self::OPT_PRIORITY, 'p', InputOption::VALUE_OPTIONAL, 'The priority name to use.', null)
-            ->addOption(self::OPT_SKIP_ERROR, null, InputOption::VALUE_OPTIONAL, 'Skip parsing errors.', true);
+            ->addOption(self::OPT_TRACKER, 't', InputOption::VALUE_REQUIRED, 'The tracker name to use.', $this->defaultTracker)
+            ->addOption(self::OPT_STATUS, 's', InputOption::VALUE_REQUIRED, 'The status name to use.', $this->defaultStatus)
+            ->addOption(self::OPT_PRIORITY, 'p', InputOption::VALUE_REQUIRED, 'The priority name to use.', $this->defaultPriority)
+            ->addOption(self::OPT_SKIP_ERROR, null, InputOption::VALUE_OPTIONAL, 'Skip parsing errors.', true)
+            ->addOption(
+                self::OPT_EXISTING_TASK_HANDLER,
+                null,
+                InputOption::VALUE_REQUIRED,
+                sprintf(
+                    'How to handle existing tasks found by Redmine ID: %s, %s, %s.',
+                    self::HANDLER_SKIP,
+                    self::HANDLER_UPDATE,
+                    self::HANDLER_NEW
+                ),
+                self::HANDLER_SKIP
+            );
     }
 
     private function setupWorksheet(string $filePath): void
