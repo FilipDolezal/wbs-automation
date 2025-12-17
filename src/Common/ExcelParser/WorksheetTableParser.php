@@ -10,7 +10,6 @@ use PhpOffice\PhpSpreadsheet\Exception as PhpOfficeSpreadsheetException;
 use PhpOffice\PhpSpreadsheet\Worksheet\CellIterator;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use RuntimeException;
-use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Parses an Excel worksheet into a collection of DynamicRow objects.
@@ -26,6 +25,8 @@ class WorksheetTableParser
 
     /** @var bool Flag indicating if the parsing process has completed. */
     protected bool $processed = false;
+
+    protected bool $throw = false;
 
     /** @var array<int, DynamicRow> Successfully parsed rows, indexed by row number. */
     protected array $result = [];
@@ -85,6 +86,17 @@ class WorksheetTableParser
     }
 
     /**
+     * Decides if parser should throw or store parsing errors
+     *
+     * @param bool $throw
+     * @return void
+     */
+    final public function throwOnError(bool $throw = true): void
+    {
+        $this->throw = $throw;
+    }
+
+    /**
      * Iterates through the worksheet rows and parses them.
      *
      * Skips the first row (header).
@@ -93,7 +105,7 @@ class WorksheetTableParser
      * @throws RuntimeException If no worksheet has been set.
      * @throws ExcelParserException If $throw = true and a row fails validation.
      */
-    final public function parse(bool $throw = false): void
+    final public function parse(): void
     {
         if (!isset($this->worksheet))
         {
@@ -120,7 +132,7 @@ class WorksheetTableParser
             }
             catch (ExcelParserException $e)
             {
-                if ($throw)
+                if ($this->throw)
                 {
                     throw new ExcelParserException(
                         "Row [$rowNumber] {$e->getMessage()}",

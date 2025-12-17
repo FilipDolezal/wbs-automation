@@ -5,9 +5,11 @@ namespace App\TaskUploader;
 use App\Common\ExcelParser\DynamicRow;
 use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
 use App\TaskUploader\Exception\IssueCreationException;
+use App\TaskUploader\Exception\IssueSkipException;
 use App\TaskUploader\Exception\RedmineServiceException;
 use App\TaskUploader\Parser\WbsColumnDefinition;
 use App\TaskUploader\Parser\WbsDynamicColumn;
+use App\TaskUploader\Parser\WbsWorksheet;
 use App\TaskUploader\Redmine\IssueFactory;
 use App\TaskUploader\Redmine\RedmineService;
 
@@ -20,6 +22,8 @@ use App\TaskUploader\Redmine\RedmineService;
  */
 class TaskUploaderFacade
 {
+    private readonly WbsColumnDefinition $columns;
+
     /** @var IssueFactory Factory for creating Issue DTOs. */
     private readonly IssueFactory $issueFactory;
 
@@ -36,9 +40,11 @@ class TaskUploaderFacade
      */
     private string $existingTaskHandler;
 
+    /** @var bool Skip tasks with zero estimated hours. */
+    private bool $skipZeroEstimate;
+
     public function __construct(
         private readonly RedmineService $redmineService,
-        private readonly WbsColumnDefinition $columns,
     ) {
     }
 
@@ -48,21 +54,30 @@ class TaskUploaderFacade
      * Fetches IDs for Project, Tracker, Status, Priority, and Custom Fields
      * to initialize the IssueFactory.
      *
+     * @param WbsColumnDefinition $columns
      * @param string $projectIdentifier
      * @param string $trackerName
      * @param string $statusName
      * @param string $priorityName
+     * @param string $existingTaskHandler
+     * @param bool $skipZeroEstimate
      * @throws RedmineServiceException If any configuration entity cannot be found.
      */
     public function configure(
+        WbsColumnDefinition $columns,
         string $projectIdentifier,
         string $trackerName,
         string $statusName,
         string $priorityName,
         string $existingTaskHandler,
+        bool $skipZeroEstimate,
     ): void
     {
+        $this->columns = $columns;
+
         $this->existingTaskHandler = $existingTaskHandler;
+
+        $this->skipZeroEstimate = $skipZeroEstimate;
 
         /** @var array<string, string> $customFields EXCEL COLUMN => REDMINE CUSTOM FIELD NAME */
         $customFields = array_map(static fn (WbsDynamicColumn $c) => $c->field, $this->columns->getCustomFields());
@@ -92,6 +107,7 @@ class TaskUploaderFacade
      * @return int The ID of the created task.
      * @throws IssueCreationException If the upload fails.
      * @throws ExcelParserDefinitionException If parsing fails.
+     * @throws IssueSkipException If issue was skipped on purpose
      */
     public function upload(DynamicRow $task): int
     {
@@ -100,7 +116,12 @@ class TaskUploaderFacade
         $oldRedmineId = $task->get($this->columns->columnRedmineId);
         if ($oldRedmineId !== null && $this->existingTaskHandler === UploadTasksCommand::HANDLER_SKIP)
         {
-            return $oldRedmineId;
+            throw new IssueSkipException("Issue already exists in Redmine [$oldRedmineId]. Skipping...");
+        }
+
+        if ($this->skipZeroEstimate && empty($task->get($this->columns->columnEstimatedHours)))
+        {
+            throw new IssueSkipException("Task has zero estimated hours. Skipping...");
         }
 
         // Resolve Initiative

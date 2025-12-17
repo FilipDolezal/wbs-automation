@@ -5,6 +5,7 @@ namespace App\Common\ExcelWriter;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Writer\Exception;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use RuntimeException;
 
 /**
  * Writes data back to an Excel worksheet.
@@ -15,10 +16,21 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 class WorksheetTableWriter
 {
     private Worksheet $worksheet;
+    private string $outputFilePath;
 
     public function setWorksheet(Worksheet $worksheet): void
     {
         $this->worksheet = $worksheet;
+    }
+
+    public function getOutputFilePath(): string
+    {
+        return $this->outputFilePath;
+    }
+
+    public function setOutputFilePath(string $outputFilePath): void
+    {
+        $this->outputFilePath = $outputFilePath;
     }
 
     /**
@@ -36,9 +48,14 @@ class WorksheetTableWriter
     /**
      * @throws Exception
      */
-    public function save(string $output): void
+    public function save(): void
     {
+        if (!isset($this->outputFilePath))
+        {
+            throw new RuntimeException('Output file path is not set.');
+        }
+
         $xlsx = new Xlsx($this->worksheet->getParent());
-        $xlsx->save($output);
+        $xlsx->save($this->outputFilePath);
     }
 }

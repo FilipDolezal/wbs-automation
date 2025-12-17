@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Common;
+namespace App\Common\Command;
 
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Input\InputInterface;
@@ -23,9 +23,14 @@ trait CommandLogTrait
         $title = trim($title);
         $this->io->title($title);
         $this->logger->info($title, $configuration);
+        $this->ioTable($configuration);
+    }
 
+    public function ioTable(array $table): void
+    {
         $rows = [];
-        foreach ($configuration as $key => $value)
+
+        foreach ($table as $key => $value)
         {
             $rows[] = [$key, $value];
         }

@@ -20,30 +20,16 @@ services:
 
     # Task Uploader Facade
     App\TaskUploader\TaskUploaderFacade: ~
-
-    # WBS Column structure definition
-    App\TaskUploader\Parser\WbsColumnDefinition:
+    
+    # WBS Worksheet Registry
+    App\TaskUploader\Parser\WbsWorksheetRegistry:
         arguments:
-            $columnDefinition: '%wbs.column_definition%'
-            $columnIdentifiers: '%wbs.column_identifiers%'
-
-    # WBS spreadsheet parser
-    WBSParser:
-        class: 'App\Common\ExcelParser\WorksheetTableParser'
-        arguments:
-            $columns: '@App\TaskUploader\Parser\WbsColumnDefinition'
-
-    # WBS spreadsheet writer
-    WBSWriter:
-        class: 'App\Common\ExcelWriter\WorksheetTableWriter'
+            $worksheetDefinitions: '%wbs.worksheet_definitions%'
 
     # Command
     App\TaskUploader\UploadTasksCommand:
         public: true # Must be public for bin/cli
         arguments:
-            $worksheetName: '%wbs.spreadsheet_name%'
-            $parser: '@WBSParser'
-            $writer: '@WBSWriter'
             $defaultTracker: '%redmine.default.tracker%'
             $defaultStatus: '%redmine.default.status%'
             $defaultPriority: '%redmine.default.priority%'

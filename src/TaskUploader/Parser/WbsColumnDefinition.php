@@ -20,6 +20,7 @@ readonly class WbsColumnDefinition extends ColumnDefinition
     public string $columnInitiative;
     public string $columnEpic;
     public string $columnRedmineId;
+    public string $columnEstimatedHours;
 
     /** @var array<string, string> $fields Map of Field Name => Column Letter */
     private array $fields;
@@ -40,6 +41,7 @@ readonly class WbsColumnDefinition extends ColumnDefinition
         $this->columnInitiative = $columnParser('initiative');
         $this->columnEpic = $columnParser('epic');
         $this->columnRedmineId = $columnParser('redmineId');
+        $this->columnEstimatedHours = $columnParser('estimatedHours');
 
         $fields = [];
 
