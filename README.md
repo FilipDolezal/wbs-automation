@@ -2,28 +2,21 @@
 
 Tato CLI aplikace automatizuje proces nahrávání úkolů z Excel WBS (Work Breakdown Structure) tabulky do Redmine. Zvládá vztahy nadřazený-podřízený (Iniciativa -> Epic -> Úkol) a zajišťuje, že se úkoly neduplikují.
 
-## Prerekvizity
-
-- [Docker](https://www.docker.com/)
-- [Docker Compose](https://docs.docker.com/compose/)
-
 ## Průvodce nastavením
 
 ### 1. Prostředí Docker
 
-Spusťte aplikaci a lokální instanci Redmine pomocí přiloženého Makefile nebo Docker Compose.
+Aplikace je kontejnerizovaná a předpokládá připojení k externí instanci Redmine.
 
 ```bash
-# Spustit všechny služby
+# Sestavit obraz
+make build
+
+# Spustit kontejner aplikace
 make up
-# Spustit lokální instanci Redmine
-make up-redmine
 ```
 
-Tímto se spustí:
-- **App**: PHP CLI prostředí.
-- **Redmine**: Lokální instance Redmine dostupná na `http://localhost:8088`.
-- **Postgres**: Databáze pro Redmine.
+Tímto se spustí **App**: PHP CLI prostředí, ze kterého budete spouštět nahrávací skript.
 
 ### 2. Konfigurace aplikace
 
@@ -33,60 +26,21 @@ Zkopírujte příklad konfiguračního souboru pro vytvoření vaší lokální 
 cp src/TaskUploader/Config/parameters.example.yaml src/TaskUploader/Config/parameters.yaml
 ```
 
-Otevřete `src/TaskUploader/Config/parameters.yaml` a upravte nastavení:
+Otevřete `src/TaskUploader/Config/parameters.yaml` a upravte nastavení pro připojení k vašemu externímu Redmine:
 
-- **redmine.url**: URL vaší instance Redmine (např. `http://redmine:3000` pokud používáte docker síť, nebo `http://host.docker.internal:8088` zevnitř kontejneru).
+- **redmine.url**: URL vaší instance Redmine (např. `https://redmine.vasedomena.cz`).
 - **redmine.api_key**: Váš API klíč k Redmine (naleznete v "Můj účet" -> "Zobrazit API klíč" ve vašem profilu Redmine).
-- **redmine.default**: Výchozí názvy pro Typ úkolu (Tracker), Stav (Status) a Prioritu. Tyto **musí** v Redmine existovat.
+- **redmine.default**: Výchozí názvy pro Typ úkolu (Tracker), Stav (Status) a Prioritu. Tyto **musí** v cílovém Redmine existovat.
 
 Pro podrobné informace o nastavení parsování Excel souborů a definici sloupců se prosím podívejte do [src/TaskUploader/README.md](src/TaskUploader/README.md).
 
-### 3. Nastavení Redmine (Klíčový krok)
-
-Pokud používáte lokální instanci Redmine (nebo čistou externí instalaci), **musíte** ji před použitím skriptu manuálně nakonfigurovat. Skript spoléhá na to, že v Redmine existují konkrétní Typy úkolů, Stavy, Priority a Vlastní pole.
-
-**Přístup do Redmine:**
-- URL: [http://localhost:8088](http://localhost:8088)
-- Výchozí přihlašovací údaje: `admin` / `admin`
-
-#### Konfigurace krok za krokem:
-
-1.  **Vytvořte Stavy úkolů (Issue Statuses):**
-    - Jděte do **Administrace** -> **Stavy úkolů**.
-    - Ujistěte se, že existuje stav s názvem **"New"** (nebo jakýkoliv název, který jste nastavili v `redmine.default.status`).
-
-2.  **Vytvořte Typy úkolů (Trackers):**
-    - Jděte do **Administrace** -> **Typy úkolů**.
-    - Vytvořte nový typ s názvem **"Bug"** (nebo odpovídající `redmine.default.tracker`).
-    - **Důležité:** V záložce "Projekty" v nastavení typu úkolu zaškrtněte projekty, ve kterých chcete tento typ používat (nebo aplikujte na všechny).
-
-3.  **Zkontrolujte Priority:**
-    - Jděte do **Administrace** -> **Číselníky**.
-    - V sekci "Priority úkolů" se ujistěte, že existuje **"Normal"** (odpovídá `redmine.default.priority`).
-
-4.  **Vytvořte Vlastní pole (Custom Fields) - pokud jsou v Excelu použita:**
-    - Příklad konfigurace používá "Estimated Development Hours" a "Link to Specification".
-    - Jděte do **Administrace** -> **Vlastní pole**.
-    - Klikněte na **"Nové vlastní pole"** -> vyberte **"Úkoly"**.
-    - **Název**: Musí přesně odpovídat hodnotě `custom_field` ve vašem `parameters.yaml` (např. `Estimated Development Hours`).
-    - **Formát**: Vyberte vhodný formát (např. Číslo pro hodiny, Text/Odkaz pro URL).
-    - **Typy úkolů**: Zaškrtněte typy (např. "Bug"), které mají toto pole používat.
-    - **Projekty**: Zaškrtněte projekty (nebo "Pro všechny projekty").
-
-5.  **Vytvořte Projekt:**
-    - Jděte do **Projekty** -> **Nový projekt**.
-    - **Název**: např. "Migrační Projekt".
-    - **Identifikátor**: např. `migration-project`. Tento **identifikátor** budete potřebovat pro spuštění příkazu.
-    - **Moduly**: Ujistěte se, že je povoleno "Sledování úkolů".
-    - **Typy úkolů**: Ujistěte se, že je zaškrtnuto "Bug".
-
 ## Použití
 
-Pro spuštění nahrávacího skriptu použijte `make shell` pro spuštění příkazu uvnitř kontejneru `app`.
+Pro spuštění nahrávacího skriptu použijte `make bash` pro spuštění příkazu uvnitř kontejneru `app`.
 
 **Syntaxe:**
 ```bash
-make shell
+make bash
 # Uvnitř kontejneru:
 php bin/cli app:upload-tasks [<cesta_k_souboru>] [<nazev_archu>] [<identifikator_projektu>] [možnosti]
 ```
@@ -95,7 +49,7 @@ php bin/cli app:upload-tasks [<cesta_k_souboru>] [<nazev_archu>] [<identifikator
 Předpokládejme, že máte Excel soubor `tasks.xlsx` s archem `WBS - vývoj`:
 
 ```bash
-make shell
+make bash
 # Uvnitř kontejneru:
 php bin/cli app:upload-tasks tasks.xlsx "WBS - vývoj" migration-project
 ```
@@ -114,4 +68,4 @@ php bin/cli app:upload-tasks tasks.xlsx "WBS - vývoj" migration-project
 
 - `make build`: Sestavit docker image.
 - `make up`: Spustit kontejnery.
-- `make shell`: Vstoupit do shellu kontejneru.
+- `make bash`: Vstoupit do shellu kontejneru.

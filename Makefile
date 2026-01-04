@@ -2,7 +2,7 @@
 build:
 	docker-compose build
 
-# Start the container in detached mode
+# Start the application container
 up:
 	docker-compose up -d
 
@@ -10,21 +10,9 @@ up:
 down:
 	docker-compose down
 
-# Execute a command inside the container
-exec:
-	docker-compose exec app $(cmd)
-
-# Run the main script
-run:
-	docker-compose exec app php bin/cli
-
 # Get a shell inside the container
-shell:
+bash b:
 	docker-compose exec app bash
-
-# Start only the redmine and postgres services
-up-redmine:
-	docker-compose up -d redmine postgres
 
 # Clear log files
 clear-logs:
