@@ -8,46 +8,69 @@ parameters:
     redmine.default.priority: 'Default'
 
     # WBS configuration
-    wbs.spreadsheet_name: 'WBS - vývoj'
-    wbs.column_identifiers:
-        taskName: 'A'
-        initiative: 'B'
-        epic: 'C'
-        redmineId: 'D'
-
-    # custom_field is a place for name identifier of a redmine custom field
-    wbs.column_definition:
-        A:
-          type: string
-          nullable: false
-          field: subject
-
-        B:
-          type: string
-
-        C:
-          type: string
-
-        D:
-          type: int
-
-        F:
-          type: float
-          custom_field: 'Odhad pro programátora'
-
-        K:
-          type: float
-          calculated: true
-          field: estimatedHours
-
-        L:
-          type: string
-          field: description
-
-        M:
-          type: string
-          field: acceptanceCriteria
-
-        N:
-          type: string
-          custom_field: 'Odkaz na specifikaci'
+    wbs.worksheet_definitions:
+        -
+            name: 'WBS - vývoj'
+            
+            column_identifiers:
+                taskName: 'A'
+                initiative: 'B'
+                epic: 'C'
+                redmineId: 'D'
+                estimatedHours: 'K'
+            
+            column_definition:
+                A:
+                    type: string
+                    nullable: false
+                    field: subject
+                B:
+                    type: string
+                C:
+                    type: string
+                D:
+                    type: int
+                F:
+                    type: float
+                    custom_field: 'Odhad pro programátora'
+                K:
+                    type: float
+                    calculated: true
+                    field: estimatedHours
+                L:
+                    type: string
+                    field: description
+                M:
+                    type: string
+                    field: acceptanceCriteria
+                N:
+                    type: string
+                    custom_field: 'Odkaz na specifikaci'
+        -
+            name: 'WBS - operativní činnosti'
+            
+            column_identifiers:
+                taskName: 'A'
+                initiative: 'B'
+                epic: 'C'
+                redmineId: 'D'
+                estimatedHours: 'E'
+            
+            column_definition:
+                A:
+                    type: string
+                    nullable: false
+                    field: subject
+                B:
+                    type: string
+                C:
+                    type: string
+                D:
+                    type: int
+                E:
+                    type: float
+                    calculated: true
+                    field: estimatedHours
+                F:
+                    type: string
+                    field: description

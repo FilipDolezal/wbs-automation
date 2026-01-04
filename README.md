@@ -88,16 +88,16 @@ Pro spuštění nahrávacího skriptu použijte `make shell` pro spuštění př
 ```bash
 make shell
 # Uvnitř kontejneru:
-php bin/cli app:upload-tasks <cesta_k_souboru> <identifikator_projektu> [možnosti]
+php bin/cli app:upload-tasks [<cesta_k_souboru>] [<nazev_archu>] [<identifikator_projektu>] [možnosti]
 ```
 
 **Příklad:**
-Předpokládejme, že máte Excel soubor `tasks.xlsx`:
+Předpokládejme, že máte Excel soubor `tasks.xlsx` s archem `WBS - vývoj`:
 
 ```bash
 make shell
 # Uvnitř kontejneru:
-php bin/cli app:upload-tasks tasks.xlsx migration-project
+php bin/cli app:upload-tasks tasks.xlsx "WBS - vývoj" migration-project
 ```
 
 ### Možnosti (Options)
@@ -105,7 +105,10 @@ php bin/cli app:upload-tasks tasks.xlsx migration-project
 - `-t, --tracker`: Přepsat výchozí typ úkolu (např. `--tracker="Feature"`).
 - `-s, --status`: Přepsat výchozí stav (např. `--status="In Progress"`).
 - `-p, --priority`: Přepsat výchozí prioritu (např. `--priority="High"`).
-- `--skip-error`: Pokračovat ve zpracování, i když některé řádky selžou (výchozí: zapnuto).
+- `-of, --output-file`: Cesta k výstupnímu souboru (výchozí: přepíše vstupní soubor).
+- `-spe, --skip-parse-error`: Pokračovat ve zpracování, i když některé řádky selžou při parsování (výchozí: zapnuto).
+- `-sze, --skip-zero-estimate`: Nenahrávat úkoly s nulovým odhadem času (výchozí: zapnuto).
+- `-eth, --existing-task-handler`: Jak naložit s existujícími úkoly nalezenými podle Redmine ID (hodnoty: `skip` (přeskočit), `update` (aktualizovat), `new` (vytvořit nový)). Výchozí: `skip`.
 
 ### Zkratky v Makefile
 

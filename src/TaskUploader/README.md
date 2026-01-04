@@ -34,41 +34,32 @@ These settings define the default attributes for new tasks created in Redmine if
 
 ### 3. WBS Excel Configuration
 
-This section tells the parser how to read your Excel file.
-
-#### Spreadsheet Settings
-
-```yaml
-    wbs.spreadsheet_name: 'WBS - vývoj' # The name of the sheet tab to read
-```
-
-#### Column Identifiers (Mandatory)
-
-You must map specific logical roles to Excel columns. These are required for the hierarchy (Initiative -> Epic -> Task) to work correctly.
-
-```yaml
-    wbs.column_identifiers:
-        taskName: 'A'   # Column containing the Task Subject
-        initiative: 'B' # Column containing the Initiative name (Parent level 1)
-        epic: 'C'       # Column containing the Epic name (Parent level 2)
-        redmineId: 'D'  # Column to store/read the Redmine ID (if updating/referencing)
-```
-
-#### Column Definitions
-
-This section defines the schema for your Excel columns. You can map columns to standard Redmine fields or custom fields.
+This section tells the parser how to read your Excel file. You can define multiple worksheet configurations to support different WBS structures within the same application.
 
 **Structure:**
 
 ```yaml
-    wbs.column_definition:
-        <Column_Letter>:
-            type: <string|int|float>
-            nullable: <true|false> (default: true)
-            calculated: <true|false> (default: false)
-          # ONE OF THE FOLLOWING:
-            field: <redmine_standard_field>
-            custom_field: <redmine_custom_field_name>
+    wbs.worksheet_definitions:
+        -
+            name: 'Sheet Name' # The name of the Excel sheet tab to read
+            
+            # Mandatory: Map logical roles to Excel columns
+            column_identifiers:
+                taskName: 'A'   # Column containing the Task Subject
+                initiative: 'B' # Column containing the Initiative name (Parent level 1)
+                epic: 'C'       # Column containing the Epic name (Parent level 2)
+                redmineId: 'D'  # Column to store/read the Redmine ID
+                estimatedHours: 'K' # (Optional) Column for estimated hours
+            
+            # Define schema for specific columns
+            column_definition:
+                <Column_Letter>:
+                    type: <string|int|float>
+                    nullable: <true|false> (default: true)
+                    calculated: <true|false> (default: false)
+                    # ONE OF THE FOLLOWING:
+                    field: <redmine_standard_field>
+                    custom_field: <redmine_custom_field_name>
 ```
 
 **Available Standard Fields (`field`):**
@@ -84,22 +75,39 @@ Use the exact name of the Custom Field as it appears in Redmine.
 **Example:**
 
 ```yaml
-    wbs.column_definition:
-        A:
-          type: string
-          nullable: false
-          field: subject  # Maps Column A to the Task Subject
-
-        F:
-          type: float
-          custom_field: 'Odhad pro programátora' # Maps Column F to Redmine Custom Field "Odhad pro programátora"
-
-        K:
-          type: float
-          calculated: true
-          field: estimatedHours # Maps Column K to Estimated Hours (marked as calculated in Excel)
-
-        L:
-          type: string
-          field: description # Maps Column L to the Task Description
+    wbs.worksheet_definitions:
+        -
+            name: 'WBS - vývoj'
+            
+            column_identifiers:
+                taskName: 'A'
+                initiative: 'B'
+                epic: 'C'
+                redmineId: 'D'
+                estimatedHours: 'K'
+            
+            column_definition:
+                A:
+                    type: string
+                    nullable: false
+                    field: subject
+                B:
+                    type: string
+                C:
+                    type: string
+                D:
+                    type: int
+                F:
+                    type: float
+                    custom_field: 'Odhad pro programátora'
+                K:
+                    type: float
+                    calculated: true
+                    field: estimatedHours
+                L:
+                    type: string
+                    field: description
+                N:
+                    type: string
+                    custom_field: 'Odkaz na specifikaci'
 ```

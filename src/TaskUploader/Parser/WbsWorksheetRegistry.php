@@ -17,11 +17,6 @@ final readonly class WbsWorksheetRegistry
         }
     }
 
-    public function getWorksheetNames(): array
-    {
-        return array_map(static fn ($item) => $item[WbsWorksheet::WORKSHEET_NAME], $this->worksheetDefinitions);
-    }
-
     /**
      * @throws ExcelParserDefinitionException
      */

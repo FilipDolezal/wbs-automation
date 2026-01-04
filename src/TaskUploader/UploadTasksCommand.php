@@ -177,22 +177,6 @@ final class UploadTasksCommand extends Command
         return Command::SUCCESS;
     }
 
-    protected function configure(): void
-    {
-        $this
-            ->setDescription('Uploads tasks from an Excel file to Redmine.')
-            ->addArgument(self::ARG_SPREADSHEET, InputArgument::OPTIONAL, 'The path to the Excel spreadsheet.')
-            ->addArgument(self::ARG_WORKSHEET, InputArgument::OPTIONAL, 'The WBS worksheet name.')
-            ->addArgument(self::ARG_PROJECT, InputArgument::OPTIONAL, 'The Redmine project identifier.')
-            ->addOption(self::OPT_TRACKER, 't', InputOption::VALUE_REQUIRED, 'The tracker name to use.', $this->defaultTracker)
-            ->addOption(self::OPT_STATUS, 's', InputOption::VALUE_REQUIRED, 'The status name to use.', $this->defaultStatus)
-            ->addOption(self::OPT_PRIORITY, 'p', InputOption::VALUE_REQUIRED, 'The priority name to use.', $this->defaultPriority)
-            ->addOption(self::OPT_OUTPUT_FILE, 'of', InputOption::VALUE_OPTIONAL, 'Output file path. Overrides input file by default.', null)
-            ->addOption(self::OPT_SKIP_PARSE_ERROR, 'spe', InputOption::VALUE_OPTIONAL, 'Skip parsing errors before uploading tasks.', true)
-            ->addOption(self::OPT_SKIP_ZERO_ESTIMATE, 'sze', InputOption::VALUE_OPTIONAL, 'Skip uploading tasks with zero estimated hours.', true)
-            ->addOption(self::OPT_EXISTING_TASK_HANDLER, 'eth', InputOption::VALUE_REQUIRED, sprintf('How to handle existing tasks found by Redmine ID: %s|%s|%s.', self::HANDLER_SKIP, self::HANDLER_UPDATE, self::HANDLER_NEW), self::HANDLER_SKIP);
-    }
-
     /**
      * @throws RedmineServiceException
      * @throws ExcelParserDefinitionException
@@ -222,25 +206,22 @@ final class UploadTasksCommand extends Command
         }
 
         $spreadsheet = IOFactory::load($filePath);
-
         $worksheetName = $input->getArgument(self::ARG_WORKSHEET);
         if (empty($worksheetName))
         {
-            $options = $this->wbsWorksheetRegistry->getWorksheetNames();
+            $autoConfirm = false;
 
-            if (count($options) === 1)
+            do
             {
-                // only one option; default to it
-                $worksheetName = $options[0];
+                $worksheetName = $this->io->ask('Provide name of the worksheet:');
+                $worksheet = $spreadsheet->getSheetByName($worksheetName);
             }
-            else
-            {
-                $autoConfirm = false;
-                $worksheetName = $this->io->choice('Which worksheet to parse?', $options);
-            }
+            while ($worksheet === null);
         }
-
-        $worksheet = $spreadsheet->getSheetByName($worksheetName);
+        else
+        {
+            $worksheet = $spreadsheet->getSheetByName($worksheetName);
+        }
 
         if ($worksheet === null)
         {
@@ -328,5 +309,21 @@ final class UploadTasksCommand extends Command
         );
 
         return $autoConfirm || $this->io->confirm('Do you want to continue?');
+    }
+
+    protected function configure(): void
+    {
+        $this
+            ->setDescription('Uploads tasks from an Excel file to Redmine.')
+            ->addArgument(self::ARG_SPREADSHEET, InputArgument::OPTIONAL, 'The path to the Excel spreadsheet.')
+            ->addArgument(self::ARG_WORKSHEET, InputArgument::OPTIONAL, 'The WBS worksheet name.')
+            ->addArgument(self::ARG_PROJECT, InputArgument::OPTIONAL, 'The Redmine project identifier.')
+            ->addOption(self::OPT_TRACKER, 't', InputOption::VALUE_REQUIRED, 'The tracker name to use.', $this->defaultTracker)
+            ->addOption(self::OPT_STATUS, 's', InputOption::VALUE_REQUIRED, 'The status name to use.', $this->defaultStatus)
+            ->addOption(self::OPT_PRIORITY, 'p', InputOption::VALUE_REQUIRED, 'The priority name to use.', $this->defaultPriority)
+            ->addOption(self::OPT_OUTPUT_FILE, 'of', InputOption::VALUE_OPTIONAL, 'Output file path. Overrides input file by default.', null)
+            ->addOption(self::OPT_SKIP_PARSE_ERROR, 'spe', InputOption::VALUE_OPTIONAL, 'Skip parsing errors before uploading tasks.', true)
+            ->addOption(self::OPT_SKIP_ZERO_ESTIMATE, 'sze', InputOption::VALUE_OPTIONAL, 'Skip uploading tasks with zero estimated hours.', true)
+            ->addOption(self::OPT_EXISTING_TASK_HANDLER, 'eth', InputOption::VALUE_REQUIRED, sprintf('How to handle existing tasks found by Redmine ID: %s|%s|%s.', self::HANDLER_SKIP, self::HANDLER_UPDATE, self::HANDLER_NEW), self::HANDLER_SKIP);
     }
 }
