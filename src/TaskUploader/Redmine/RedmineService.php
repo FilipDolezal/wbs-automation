@@ -88,16 +88,22 @@ readonly class RedmineService
      * This is used to prevent creating duplicate Initiatives or Epics.
      *
      * @param string $subject The subject to search for.
+     * @param int|null $projectId The project ID to search within.
      * @param int|null $parentIssueId Optional parent ID to narrow the search.
      * @return int|null The Issue ID if found, or null.
      */
-    public function getIssueIdBySubject(string $subject, ?int $parentIssueId = null): ?int
+    public function getIssueIdBySubject(string $subject, ?int $projectId = null, ?int $parentIssueId = null): ?int
     {
         $options = ['subject' => $subject, 'limit' => 100];
 
         if ($parentIssueId !== null)
         {
             $options['parent_issue_id'] = $parentIssueId;
+        }
+
+        if ($projectId !== null)
+        {
+            $options['project_id'] = $projectId;
         }
 
         // Redmine API 'subject' filter is usually a "contains" search.
@@ -156,22 +162,13 @@ readonly class RedmineService
      */
     public function getProjectIdByIdentifier(string $projectIdentifier): int
     {
-        $response = $this->client->getApi('project')->list();
+        $response = $this->client->getApi('project')->show($projectIdentifier);
 
-        if (!isset($response['projects']) || !is_array($response['projects']))
-        {
-            throw new RedmineServiceException("Could not retrieve projects from Redmine API.");
-        }
+        /** @var int $id */
+        $id = $response['project']['id'] ??
+            throw new RedmineServiceException(sprintf("Project with identifier '%s' not found.", $projectIdentifier));
 
-        foreach ($response['projects'] as $project)
-        {
-            if ($project['identifier'] === $projectIdentifier)
-            {
-                return (int)$project['id'];
-            }
-        }
-
-        throw new RedmineServiceException(sprintf("Project with identifier '%s' not found.", $projectIdentifier));
+        return $id;
     }
 
     /**

@@ -24,6 +24,9 @@ class TaskUploaderFacade
 {
     private readonly WbsColumnDefinition $columns;
 
+    /** @var int Redmine Project ID. */
+    private int $projectId;
+
     /** @var IssueFactory Factory for creating Issue DTOs. */
     private readonly IssueFactory $issueFactory;
 
@@ -85,8 +88,10 @@ class TaskUploaderFacade
         /** @var array<string, int> $customFieldIds EXCEL COLUMN => REDMINE CUSTOM FIELD ID */
         $customFieldIds = $this->redmineService->getCustomFieldIds($customFields);
 
+        $this->projectId = $this->redmineService->getProjectIdByIdentifier($projectIdentifier);
+
         $this->issueFactory = new IssueFactory(
-            projectId: $this->redmineService->getProjectIdByIdentifier($projectIdentifier),
+            projectId: $this->projectId,
             trackerId: $this->redmineService->getTrackerIdByName($trackerName),
             statusId: $this->redmineService->getStatusIdByName($statusName),
             priorityId: $this->redmineService->getPriorityIdByName($priorityName),
@@ -173,7 +178,7 @@ class TaskUploaderFacade
         }
 
         // 2. Check Remote (Redmine)
-        $existingId = $this->redmineService->getIssueIdBySubject($name, $parentId);
+        $existingId = $this->redmineService->getIssueIdBySubject($name, $this->projectId, $parentId);
         if ($existingId !== null)
         {
             $this->issueCache[$cacheKey] = $existingId;
