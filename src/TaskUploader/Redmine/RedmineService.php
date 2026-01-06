@@ -75,7 +75,8 @@ readonly class RedmineService
 
         // The Redmine API for update usually returns an empty body on success.
         // If we reach here without an error or an XML response, assume success and return the original ID.
-        if ($response === '') {
+        if ($response === '')
+        {
             return $issueId;
         }
 
@@ -94,7 +95,7 @@ readonly class RedmineService
      */
     public function getIssueIdBySubject(string $subject, ?int $projectId = null, ?int $parentIssueId = null): ?int
     {
-        $options = ['subject' => $subject, 'limit' => 100];
+        $options = ['subject' => "~$subject", 'limit' => 1];
 
         if ($parentIssueId !== null)
         {
@@ -106,8 +107,6 @@ readonly class RedmineService
             $options['project_id'] = $projectId;
         }
 
-        // Redmine API 'subject' filter is usually a "contains" search.
-        // We request issues containing the string, then filter locally for an exact match.
         $response = $this->client->getApi('issue')->list($options);
 
         if (!isset($response['issues']) || !is_array($response['issues']))
@@ -115,15 +114,9 @@ readonly class RedmineService
             return null;
         }
 
-        foreach ($response['issues'] as $issue)
-        {
-            if ($issue['subject'] === $subject)
-            {
-                return (int)$issue['id'];
-            }
-        }
+        $issue = array_first($response['issues']);
 
-        return null;
+        return isset($issue['id']) ? (int)$issue['id'] : null;
     }
 
     /**

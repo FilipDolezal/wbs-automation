@@ -9,7 +9,7 @@ use App\TaskUploader\Exception\IssueSkipException;
 use App\TaskUploader\Exception\RedmineServiceException;
 use App\TaskUploader\Parser\WbsColumnDefinition;
 use App\TaskUploader\Parser\WbsDynamicColumn;
-use App\TaskUploader\Parser\WbsWorksheet;
+use App\TaskUploader\Redmine\EParentType;
 use App\TaskUploader\Redmine\IssueFactory;
 use App\TaskUploader\Redmine\RedmineService;
 
@@ -48,7 +48,8 @@ class TaskUploaderFacade
 
     public function __construct(
         private readonly RedmineService $redmineService,
-    ) {
+    )
+    {
     }
 
     /**
@@ -83,7 +84,7 @@ class TaskUploaderFacade
         $this->skipZeroEstimate = $skipZeroEstimate;
 
         /** @var array<string, string> $customFields EXCEL COLUMN => REDMINE CUSTOM FIELD NAME */
-        $customFields = array_map(static fn (WbsDynamicColumn $c) => $c->field, $this->columns->getCustomFields());
+        $customFields = array_map(static fn(WbsDynamicColumn $c) => $c->field, $this->columns->getCustomFields());
 
         /** @var array<string, int> $customFieldIds EXCEL COLUMN => REDMINE CUSTOM FIELD ID */
         $customFieldIds = $this->redmineService->getCustomFieldIds($customFields);
@@ -132,12 +133,12 @@ class TaskUploaderFacade
         // Resolve Initiative
         /** @var ?string $initiativeString */
         $initiativeString = $task->get($this->columns->columnInitiative);
-        $initiativeId = $initiativeString ? $this->getOrUploadParent($initiativeString) : null;
+        $initiativeId = $initiativeString ? $this->getOrUploadParent($initiativeString, EParentType::INITIATIVE) : null;
 
         // Resolve Epic
         /** @var ?string $epicString */
         $epicString = $task->get($this->columns->columnEpic);
-        $epicId = $epicString ? $this->getOrUploadParent($epicString, $initiativeId) : null;
+        $epicId = $epicString ? $this->getOrUploadParent($epicString, EParentType::EPIC, $initiativeId) : null;
 
         // Upload the Task itself
         // Parent is Epic if exists, else Initiative, else null.
@@ -167,9 +168,10 @@ class TaskUploaderFacade
      * Checks cache -> checks Redmine -> creates if missing.
      * @throws IssueCreationException
      */
-    private function getOrUploadParent(string $name, ?int $parentId = null): int
+    private function getOrUploadParent(string $name, EParentType $parentType, ?int $parentId = null): int
     {
         $cacheKey = serialize([$parentId, mb_strtolower(trim($name))]);
+        $prefixedName = "{$parentType->getIssuePrefix()} $name";
 
         // 1. Check Local Cache
         if (isset($this->issueCache[$cacheKey]))
@@ -178,7 +180,7 @@ class TaskUploaderFacade
         }
 
         // 2. Check Remote (Redmine)
-        $existingId = $this->redmineService->getIssueIdBySubject($name, $this->projectId, $parentId);
+        $existingId = $this->redmineService->getIssueIdBySubject($prefixedName, $this->projectId, $parentId);
         if ($existingId !== null)
         {
             $this->issueCache[$cacheKey] = $existingId;
@@ -186,7 +188,7 @@ class TaskUploaderFacade
         }
 
         // 3. Create New
-        $issue = $this->issueFactory->createParent($name, $parentId);
+        $issue = $this->issueFactory->createParent($prefixedName, $parentId);
         $newId = $this->redmineService->createIssue($issue);
 
         $this->issueCache[$cacheKey] = $newId;
