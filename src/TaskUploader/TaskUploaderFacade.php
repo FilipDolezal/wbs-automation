@@ -7,11 +7,14 @@ use App\Common\ExcelParser\Exception\ExcelParserDefinitionException;
 use App\TaskUploader\Exception\IssueCreationException;
 use App\TaskUploader\Exception\IssueSkipException;
 use App\TaskUploader\Exception\RedmineServiceException;
+use App\TaskUploader\Parser\ParentNameParser;
 use App\TaskUploader\Parser\WbsColumnDefinition;
 use App\TaskUploader\Parser\WbsDynamicColumn;
 use App\TaskUploader\Redmine\EParentType;
 use App\TaskUploader\Redmine\IssueFactory;
 use App\TaskUploader\Redmine\RedmineService;
+use App\TaskUploader\Result\ParentResolutionResult;
+use App\TaskUploader\Result\UploadResult;
 
 /**
  * Orchestrates the task upload process.
@@ -110,12 +113,12 @@ class TaskUploaderFacade
      * 3. Creating the Task itself (Child).
      *
      * @param DynamicRow $task The parsed Excel row.
-     * @return int The ID of the created task.
+     * @return UploadResult Contains task ID and parent resolution info.
      * @throws IssueCreationException If the upload fails.
      * @throws ExcelParserDefinitionException If parsing fails.
      * @throws IssueSkipException If issue was skipped on purpose
      */
-    public function upload(DynamicRow $task): int
+    public function upload(DynamicRow $task): UploadResult
     {
         // Resolve old Redmine ID
         /** @var ?int $oldRedmineId */
@@ -133,23 +136,23 @@ class TaskUploaderFacade
         // Resolve Initiative
         /** @var ?string $initiativeString */
         $initiativeString = $task->get($this->columns->columnInitiative);
-        $initiativeId = $initiativeString ? $this->getOrUploadParent($initiativeString, EParentType::INITIATIVE) : null;
+        $initiative = $initiativeString ? $this->getOrUploadParent($initiativeString, EParentType::INITIATIVE) : null;
 
         // Resolve Epic
         /** @var ?string $epicString */
         $epicString = $task->get($this->columns->columnEpic);
-        $epicId = $epicString ? $this->getOrUploadParent($epicString, EParentType::EPIC, $initiativeId) : null;
+        $epic = $epicString ? $this->getOrUploadParent($epicString, EParentType::EPIC, $initiative?->redmineId) : null;
 
         // Upload the Task itself
         // Parent is Epic if exists, else Initiative, else null.
-        $parentId = $epicId ?? $initiativeId;
+        $parentId = $epic?->redmineId ?? $initiative?->redmineId;
 
         // Create Issue DTO using Factory
         $issue = $this->issueFactory->createFromWbsTask($task, $parentId);
 
         if ($oldRedmineId !== null)
         {
-            return match ($this->existingTaskHandler)
+            $taskRedmineId = match ($this->existingTaskHandler)
             {
                 // Update existing task
                 UploadTasksCommand::HANDLER_UPDATE => $this->redmineService->updateIssue($oldRedmineId, $issue),
@@ -157,26 +160,51 @@ class TaskUploaderFacade
                 // Create a new (duplicate task)
                 UploadTasksCommand::HANDLER_NEW => $this->redmineService->createIssue($issue),
             };
+
+            return new UploadResult($taskRedmineId, $initiative, $epic);
         }
 
         // Create a new task
-        return $this->redmineService->createIssue($issue);
+        $taskRedmineId = $this->redmineService->createIssue($issue);
+
+        return new UploadResult($taskRedmineId, $initiative, $epic);
     }
 
     /**
      * Resolves an Issue ID for a parent entity (Initiative/Epic) by name.
-     * Checks cache -> checks Redmine -> creates if missing.
+     *
+     * Supports embedded Redmine ID format: "[12345] Name"
+     * If ID is provided in the name, it is used directly without API calls.
+     * Otherwise: Checks cache -> checks Redmine -> creates if missing.
+     *
      * @throws IssueCreationException
      */
-    private function getOrUploadParent(string $name, EParentType $parentType, ?int $parentId = null): int
+    private function getOrUploadParent(string $rawInput, EParentType $parentType, ?int $parentId = null): ParentResolutionResult
     {
+        // Parse for embedded Redmine ID
+        $parsed = ParentNameParser::parse($rawInput);
+        $name = $parsed->name ?? $rawInput;
         $cacheKey = serialize([$parentId, mb_strtolower(trim($name))]);
         $prefixedName = "{$parentType->getIssuePrefix()} $name";
+
+        // If user provided a Redmine ID, use it directly
+        if ($parsed->hasRedmineId())
+        {
+            $this->issueCache[$cacheKey] = $parsed->redmineId;
+
+            return new ParentResolutionResult(
+                redmineId: $parsed->redmineId,
+                originalName: $name
+            );
+        }
 
         // 1. Check Local Cache
         if (isset($this->issueCache[$cacheKey]))
         {
-            return $this->issueCache[$cacheKey];
+            return new ParentResolutionResult(
+                redmineId: $this->issueCache[$cacheKey],
+                originalName: $name
+            );
         }
 
         // 2. Check Remote (Redmine)
@@ -184,7 +212,11 @@ class TaskUploaderFacade
         if ($existingId !== null)
         {
             $this->issueCache[$cacheKey] = $existingId;
-            return $existingId;
+
+            return new ParentResolutionResult(
+                redmineId: $existingId,
+                originalName: $name
+            );
         }
 
         // 3. Create New
@@ -193,6 +225,9 @@ class TaskUploaderFacade
 
         $this->issueCache[$cacheKey] = $newId;
 
-        return $newId;
+        return new ParentResolutionResult(
+            redmineId: $newId,
+            originalName: $name
+        );
     }
 }

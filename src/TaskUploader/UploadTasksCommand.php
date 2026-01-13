@@ -8,6 +8,7 @@ use App\Common\ExcelParser\Exception\ExcelParserException;
 use App\TaskUploader\Exception\IssueCreationException;
 use App\TaskUploader\Exception\IssueSkipException;
 use App\TaskUploader\Exception\RedmineServiceException;
+use App\TaskUploader\Parser\ParentNameParser;
 use App\TaskUploader\Parser\WbsWorksheet;
 use App\TaskUploader\Parser\WbsWorksheetRegistry;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -131,17 +132,48 @@ final class UploadTasksCommand extends Command
 
             try
             {
-                $redmineId = $this->taskUploaderFacade->upload($task);
+                $result = $this->taskUploaderFacade->upload($task);
 
                 $this->logger->info(sprintf(
                     "[%s/%s] Processed Redmine Issue [%s]: %s",
                     $progressBar->getProgress() + 1,
                     $progressBar->getMaxSteps(),
-                    $redmineId,
+                    $result->taskRedmineId,
                     $taskName
                 ));
 
-                $this->wbs->writer->write($rowNumber, $this->wbs->columns->columnRedmineId, $redmineId);
+                // Write task Redmine ID
+                $this->wbs->writer->write(
+                    row: $rowNumber,
+                    column: $this->wbs->columns->columnRedmineId,
+                    value: $result->taskRedmineId
+                );
+
+                if ($result->initiative !== null)
+                {
+                    // Write initiative ID
+                    $this->wbs->writer->write(
+                        row: $rowNumber,
+                        column: $this->wbs->columns->columnInitiative,
+                        value: ParentNameParser::format(
+                            $result->initiative->redmineId,
+                            $result->initiative->originalName
+                        )
+                    );
+                }
+
+                if ($result->epic !== null)
+                {
+                    // Write epic ID
+                    $this->wbs->writer->write(
+                        row: $rowNumber,
+                        column: $this->wbs->columns->columnEpic,
+                        value: ParentNameParser::format(
+                            $result->epic->redmineId,
+                            $result->epic->originalName
+                        )
+                    );
+                }
             }
             catch (IssueCreationException $e)
             {
@@ -281,22 +313,24 @@ final class UploadTasksCommand extends Command
                 $outputFilePath = $this->io->ask("Output file path:", $filePath);
             }
         }
+        else
+        {
+            $this->logConfig('WBS upload process configuration', [
+                "Project" => $project,
+                "Spreadsheet" => $filePath,
+                "Worksheet" => $worksheetName,
+                "Tracker" => $tracker,
+                "Status" => $status,
+                "Priority" => $priority,
+                "Skip Parsing errors" => $skipParseError ? "Yes" : "No",
+                "Skip Zero Estimated Hours" => $skipZeroEstimate ? "Yes" : "No",
+                "Existing Task Handler" => $existingTaskHandler,
+                "Output file path" => $outputFilePath ?? 'Overrides input file'
+            ]);
+        }
 
         $this->wbs->parser->throwOnError(!$skipParseError);
         $this->wbs->writer->setOutputFilePath($outputFilePath ?? $filePath);
-
-        $this->logConfig('WBS upload process configuration', [
-            "Project" => $project,
-            "Spreadsheet" => $filePath,
-            "Worksheet" => $worksheetName,
-            "Tracker" => $tracker,
-            "Status" => $status,
-            "Priority" => $priority,
-            "Skip Parsing errors" => $skipParseError ? "Yes" : "No",
-            "Skip Zero Estimated Hours" => $skipZeroEstimate ? "Yes" : "No",
-            "Existing Task Handler" => $existingTaskHandler,
-            "Output file path" => $outputFilePath ?? 'Overrides input file'
-        ]);
 
         $this->taskUploaderFacade->configure(
             columns: $this->wbs->columns,
@@ -308,7 +342,7 @@ final class UploadTasksCommand extends Command
             skipZeroEstimate: $skipZeroEstimate,
         );
 
-        return $autoConfirm || $this->io->confirm('Do you want to continue?');
+        return $autoConfirm || $this->io->confirm('Do you want to start the process?');
     }
 
     protected function configure(): void
